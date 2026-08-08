@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Blueprint request changes — Implementation plan</title>
+        <style>
+            :root {
+                --bg: #f5f0e1;
+                --paper: #fbf8ec;
+                --paper-soft: #f1ead5;
+                --ink: #1a2e1f;
+                --ink-soft: #5a6b5a;
+                --accent: #b4541a;
+                --rule: #d8cfb4;
+                --dash: #b9b29a;
+                --tag-bg: #ece5d0;
+                --op-add: #2d5938;
+                --op-mod: #856104;
+                --op-del: #8a3320;
+            }
+            * { box-sizing: border-box; }
+            html, body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+                font-size: 17px;
+                line-height: 1.55;
+            }
+            .page { max-width: 820px; margin: 0 auto; padding: 40px 24px 96px; }
+
+            .eyebrow {
+                font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            h1 { font-size: 40px; line-height: 1.15; margin: 6px 0 20px; font-weight: 600; letter-spacing: -0.01em; }
+            h2 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -0.005em; }
+            h3 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+            p { margin: 8px 0; }
+            code { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 0.92em; }
+
+            .prompt-box {
+                background: var(--paper-soft);
+                border: 1px solid var(--rule);
+                border-radius: 10px;
+                padding: 16px 18px;
+                margin: 20px 0 36px;
+            }
+            .prompt-box .plabel {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--accent);
+                margin-bottom: 6px;
+            }
+            .prompt-box p { margin: 0; font-size: 16px; }
+
+            .bubbles {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px; margin: 24px 0 56px;
+            }
+            .bubble { background: #fff; border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
+            .bubble .label {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            .bubble .value {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 18px; font-weight: 500; margin-top: 4px;
+            }
+
+            section { margin: 56px 0; }
+            .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+            .section-num {
+                font-family: ui-monospace, Menlo, monospace;
+                color: var(--ink-soft);
+                font-size: 11px; letter-spacing: 0.08em;
+                background: var(--tag-bg);
+                border-radius: 4px; padding: 2px 7px;
+            }
+            section > p:first-of-type { color: var(--ink-soft); margin: 4px 0 24px; }
+
+            .timeline { margin-top: 8px; }
+            .milestone {
+                display: grid; grid-template-columns: 130px 28px 1fr;
+                gap: 14px; padding-bottom: 28px; position: relative;
+            }
+            .milestone .when {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; letter-spacing: 0.04em;
+                color: var(--ink-soft); padding-top: 4px; text-align: right;
+            }
+            .milestone .rail { position: relative; display: flex; justify-content: center; }
+            .milestone .rail::before {
+                content: ""; position: absolute; top: 0; bottom: -28px; left: 50%;
+                width: 1px; background: var(--rule); transform: translateX(-0.5px);
+            }
+            .milestone:last-child .rail::before { bottom: 0; }
+            .milestone .dot {
+                position: relative; z-index: 1;
+                width: 11px; height: 11px; border-radius: 50%;
+                margin-top: 8px; background: var(--op-add); border: 2px solid var(--op-add);
+            }
+            .milestone.upcoming .dot { background: var(--bg); border: 2px solid var(--accent); }
+            .milestone .body { padding-top: 2px; }
+            .tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+            .tag {
+                font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                background: var(--tag-bg); border: 1px solid var(--rule);
+                padding: 2px 8px; border-radius: 4px;
+            }
+
+            .flow {
+                background: var(--paper); border: 1px solid var(--rule);
+                border-radius: 12px; padding: 22px; overflow-x: auto;
+            }
+            .flow svg { width: 100%; height: auto; display: block; min-width: 660px; }
+            .legend {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft); margin-top: 12px;
+            }
+
+            .mock {
+                background: var(--paper); border: 1px solid var(--rule);
+                border-radius: 12px; padding: 20px; margin: 16px 0;
+            }
+            .mock h3 { margin-bottom: 12px; }
+
+            .screen { border: 1px solid var(--rule); border-radius: 8px; background: #fff; padding: 14px; }
+            .doc-lines i { display: block; height: 5px; border-radius: 3px; background: var(--tag-bg); margin-bottom: 6px; }
+            .bar {
+                display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+                border-top: 1px solid var(--rule); margin-top: 14px; padding-top: 12px;
+            }
+            .btn {
+                font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                border-radius: 5px; padding: 5px 11px; border: 1px solid var(--ink-soft); color: var(--ink);
+            }
+            .btn-go { border-color: var(--op-add); color: var(--op-add); }
+            .btn-acc { border-color: var(--accent); color: var(--accent); }
+            .ta {
+                margin-top: 12px; border: 1px solid var(--accent); border-radius: 6px;
+                padding: 10px 12px; background: var(--paper-soft);
+            }
+            .ta .cap {
+                font-family: ui-monospace, Menlo, monospace; font-size: 10px;
+                letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+            }
+            .ta .val { font-size: 14px; margin-top: 6px; }
+            .warn {
+                margin-top: 10px; font-size: 13px; color: var(--op-mod);
+                border-left: 2px solid var(--op-mod); padding-left: 10px;
+            }
+            .cap-note { color: var(--ink-soft); font-size: 14px; margin-top: 12px; }
+
+            .files { display: grid; grid-template-columns: 1fr; gap: 0; }
+            .file-row {
+                display: grid; grid-template-columns: 80px 1fr;
+                gap: 12px; align-items: baseline;
+                border-bottom: 1px dashed var(--dash); padding: 10px 0;
+            }
+            .file-op {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+            }
+            .op-add { color: var(--op-add); }
+            .op-mod { color: var(--op-mod); }
+            .op-del { color: var(--op-del); }
+            .file-path { font-family: ui-monospace, Menlo, monospace; font-size: 14px; }
+            .file-note { color: var(--ink-soft); font-size: 14px; margin-top: 3px; display: block; }
+
+            pre.code {
+                background: var(--paper); border: 1px solid var(--rule); border-radius: 8px;
+                padding: 14px 16px; overflow-x: auto;
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 13px; line-height: 1.55;
+            }
+            .code-caption {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft); margin: 18px 0 6px;
+            }
+            .kw { color: var(--accent); }
+            .fn { color: #2d5938; }
+            .str { color: #856104; }
+
+            .future-item { border-top: 1px solid var(--rule); padding: 16px 0; }
+            .future-item:last-child { border-bottom: 1px solid var(--rule); }
+            .future-item .meta {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.04em; color: var(--ink-soft); margin-top: 6px;
+            }
+
+            .ste { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; }
+            .ste ol { margin: 8px 0 0; padding-left: 22px; }
+            .ste li { margin-bottom: 4px; }
+
+            @media (max-width: 640px) {
+                .milestone { grid-template-columns: 90px 22px 1fr; gap: 10px; }
+                h1 { font-size: 32px; }
+                h2 { font-size: 22px; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <div class="eyebrow">Implementation plan · simgen POC</div>
+            <h1>Blueprint request changes</h1>
+
+            <div class="prompt-box">
+                <div class="plabel">Prompt</div>
+                <p>
+                    Right now the only way to say "this isn't right" is Reject, which throws the teacher back
+                    to rewriting their original description. If they can already tell me exactly what's wrong,
+                    I should use that. Add a feedback box that revises the current blueprint from what they
+                    typed, and keep everything they didn't mention.
+                </p>
+            </div>
+
+            <div class="bubbles">
+                <div class="bubble"><div class="label">Effort</div><div class="value">~1 day</div></div>
+                <div class="bubble"><div class="label">Files updated</div><div class="value">7</div></div>
+                <div class="bubble"><div class="label">Files added</div><div class="value">0</div></div>
+                <div class="bubble"><div class="label">Migrations</div><div class="value">none</div></div>
+                <div class="bubble"><div class="label">New endpoint</div><div class="value">1</div></div>
+                <div class="bubble"><div class="label">Closes</div><div class="value">milestone 2</div></div>
+            </div>
+
+            <!-- STE SUMMARY -->
+            <section>
+                <div class="section-head"><span class="section-num">01</span><h2>Brief summary</h2></div>
+                <p>Written in ASD-STE100 Simplified Technical English.</p>
+
+                <div class="ste">
+                    <p>
+                        A teacher reads the blueprint. The teacher does not agree with one part of it. The
+                        teacher has only two controls: accept, or reject.
+                    </p>
+                    <p>
+                        Reject is too strong. Reject sends the teacher back to the first screen. The teacher
+                        must then write the original description again. The teacher knew the correct change,
+                        but the system did not use that knowledge.
+                    </p>
+                    <p>
+                        This plan adds a third control. The teacher writes the necessary change in a text box.
+                        The system sends the current blueprint and that text to the model. The model changes
+                        only the parts the teacher mentioned. The model keeps all other parts.
+                    </p>
+                    <p>The work has five parts:</p>
+                    <ol>
+                        <li>Write a revision prompt. The prompt receives the current blueprint and the feedback.</li>
+                        <li>Add a <code>revise_plan</code> background task. Use the same shape as <code>generate_plan</code>.</li>
+                        <li>Add the route <code>POST /api/plans/{id}/revisions</code>. The route returns a job id.</li>
+                        <li>Add a <strong>Request changes</strong> button and a text box to the review screen.</li>
+                        <li>Test the complete path against the live model.</li>
+                    </ol>
+                    <p>
+                        The teacher can also change sections by hand at the same time. The system saves those
+                        changes as a version first. The system then revises that version. The teacher does not
+                        have to choose between the two methods.
+                    </p>
+                    <p>
+                        The database structure does not change. No version is overwritten. If the model fails,
+                        the teacher keeps the blueprint and keeps their own changes.
+                    </p>
+                </div>
+            </section>
+
+            <!-- MILESTONES -->
+            <section>
+                <div class="section-head"><span class="section-num">02</span><h2>Milestones</h2></div>
+                <p>Five slices, bottom-up. Slices 1–3 are testable from a terminal before any UI exists.</p>
+
+                <div class="timeline">
+                    <div class="milestone">
+                        <div class="when">Slice 1</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Revision prompt</h3>
+                            <p>
+                                <code>plan_revision_user_prompt(plan, feedback, …)</code> beside the existing
+                                <code>plan_user_prompt</code>. It reuses <code>PLAN_SYSTEM_PROMPT</code> unchanged, so
+                                every rule already in force — audience depth, authoring order, control coherence —
+                                still applies to the revision. <code>try_plan.py</code> gains
+                                <code>--feedback</code> so the prompt can be iterated with no stack, no database and
+                                no browser.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">backend/src/llm/prompts.py</span>
+                                <span class="tag">backend/scripts/try_plan.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 2</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>revise_plan task</h3>
+                            <p>
+                                Modelled line-for-line on <code>generate_plan</code>: mark running, call, validate,
+                                one retry, write the artifact, mark succeeded; a malformed response is a failed job
+                                with the raw text kept, never a crash. <code>JobType</code> gains
+                                <code>REVISE_PLAN</code> — a <code>CharField</code> value, so no migration.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">backend/src/tasks/plan.py</span>
+                                <span class="tag">backend/src/job/models.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 3</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Revisions route</h3>
+                            <p>
+                                <code>POST /api/plans/{id}/revisions</code> takes <code>{feedback_text}</code> and an
+                                optional <code>edits</code>, 409s if the source plan is not <code>pending</code>, and
+                                returns <code>202 {job_id}</code>. When <code>edits</code> are present it first
+                                persists them as a new pending version and revises from <em>that</em> — so unsaved
+                                section edits and a feedback request can be sent together, and neither is lost if the
+                                model call fails. Same response contract as <code>plan:generate</code>, so the
+                                frontend's existing polling works unchanged.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">backend/src/plan/router.py</span>
+                                <span class="tag">backend/src/plan/schemas.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 4</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Request changes UI</h3>
+                            <p>
+                                A third button in the sticky action bar. Pressing it reveals one focused textarea —
+                                not a permanently visible form, matching how section editing already works. Submit
+                                sets <code>jobId</code>, so the existing <code>useJob</code> poll and the
+                                <code>router.refresh()</code> effect carry the teacher into the new version with no
+                                new fetch logic.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">web/components/PlanWorkspace.tsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 5</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Verify against the live model</h3>
+                            <p>
+                                Ruff, ESLint, <code>tsc</code>, production build. Then the real test: ask for one
+                                narrow change ("make the list size a dropdown of powers of two") and confirm the
+                                returned blueprint changed <em>that</em> and left the objective, visuals and rules
+                                intact. Then a failure case — confirm the original draft is still reviewable.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">live gpt-5.5</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DATA FLOW -->
+            <section>
+                <div class="section-head"><span class="section-num">03</span><h2>Data flow</h2></div>
+                <p>One new endpoint and one new task on an otherwise existing path. Solid = request/response, dashed = queued or polled.</p>
+
+                <div class="flow">
+                    <svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" aria-label="Blueprint revision data flow">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M0,0 L10,5 L0,10 z" fill="#1a2e1f" />
+                            </marker>
+                        </defs>
+
+                        <rect class="node-new" x="20" y="30" width="180" height="58" style="fill:#fbf8ec;stroke:#b4541a;stroke-width:2.5" />
+                        <text x="110" y="55" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">PlanWorkspace</text>
+                        <text x="110" y="72" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">web · feedback box</text>
+
+                        <rect x="280" y="30" width="180" height="58" style="fill:#fbf8ec;stroke:#1a2e1f;stroke-width:2.5" />
+                        <text x="370" y="55" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">app/api/[...path]</text>
+                        <text x="370" y="72" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">BFF → nginx</text>
+
+                        <rect x="540" y="30" width="160" height="58" style="fill:#fbf8ec;stroke:#b4541a;stroke-width:2.5" />
+                        <text x="620" y="55" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">/revisions</text>
+                        <text x="620" y="72" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">plan/router.py</text>
+
+                        <rect x="540" y="160" width="160" height="58" style="fill:#fbf8ec;stroke:#1a2e1f;stroke-width:2.5" />
+                        <text x="620" y="185" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">generation_jobs</text>
+                        <text x="620" y="202" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">target_id = source</text>
+
+                        <rect x="280" y="160" width="180" height="58" style="fill:#fbf8ec;stroke:#b4541a;stroke-width:2.5" />
+                        <text x="370" y="185" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">revise_plan</text>
+                        <text x="370" y="202" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">src/tasks/plan.py</text>
+
+                        <rect x="20" y="160" width="180" height="58" style="fill:#fbf8ec;stroke:#1a2e1f;stroke-width:2.5" />
+                        <text x="110" y="185" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">gpt-5.5</text>
+                        <text x="110" y="202" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">PLAN_SCHEMA</text>
+
+                        <rect x="20" y="300" width="300" height="58" style="fill:#fbf8ec;stroke:#1a2e1f;stroke-width:2.5" />
+                        <text x="170" y="325" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">plan_versions</text>
+                        <text x="170" y="342" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">drafted · edited · revised — append-only</text>
+
+                        <rect x="400" y="300" width="300" height="58" style="fill:#fbf8ec;stroke:#1a2e1f;stroke-width:2.5" />
+                        <text x="550" y="325" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;fill:#1a2e1f">useJob → router.refresh()</text>
+                        <text x="550" y="342" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">web · unchanged</text>
+
+                        <path d="M200 59 L280 59" style="stroke:#1a2e1f;stroke-width:2;fill:none" marker-end="url(#arrow)" />
+                        <text x="240" y="51" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">feedback</text>
+
+                        <path d="M460 59 L540 59" style="stroke:#1a2e1f;stroke-width:2;fill:none" marker-end="url(#arrow)" />
+                        <text x="500" y="51" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">POST</text>
+
+                        <path d="M620 88 L620 160" style="stroke:#1a2e1f;stroke-width:2;fill:none" marker-end="url(#arrow)" />
+                        <text x="628" y="128" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">202</text>
+
+                        <path d="M540 189 L460 189" style="stroke:#1a2e1f;stroke-width:2;fill:none;stroke-dasharray:6 5" marker-end="url(#arrow)" />
+                        <text x="500" y="181" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">queue</text>
+
+                        <path d="M280 189 L200 189" style="stroke:#1a2e1f;stroke-width:2;fill:none" marker-end="url(#arrow)" />
+                        <text x="240" y="181" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">plan+text</text>
+
+                        <path d="M110 218 L110 300" style="stroke:#1a2e1f;stroke-width:2;fill:none" marker-end="url(#arrow)" />
+                        <text x="118" y="262" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">validated</text>
+
+                        <path d="M320 329 L400 329" style="stroke:#1a2e1f;stroke-width:2;fill:none;stroke-dasharray:6 5" marker-end="url(#arrow)" />
+                        <text x="360" y="321" text-anchor="middle" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;fill:#5a6b5a">poll</text>
+                    </svg>
+                </div>
+                <div class="legend">
+                    Solid = request/response. Dashed = queued or polled. Terracotta border = new or changed.
+                    The browser never reaches FastAPI directly — the BFF proxy is unchanged and needs no new route file.
+                </div>
+            </section>
+
+            <!-- MOCKUPS -->
+            <section>
+                <div class="section-head"><span class="section-num">04</span><h2>Mockups</h2></div>
+                <p>Three states of the action bar. The feedback box is revealed, never permanently displayed.</p>
+
+                <div class="mock">
+                    <h3>A · Default — the third button</h3>
+                    <div class="screen">
+                        <div class="doc-lines">
+                            <i style="width:92%"></i><i style="width:76%"></i><i style="width:88%"></i>
+                        </div>
+                        <div class="bar">
+                            <span class="btn btn-go">Accept blueprint</span>
+                            <span class="btn btn-acc">Request changes</span>
+                            <span class="btn">Reject and redraft</span>
+                        </div>
+                    </div>
+                    <p class="cap-note">
+                        Request changes sits between the two existing actions, because it is between them in
+                        severity. Reject keeps its current meaning: start over from the description.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>B · Revealed</h3>
+                    <div class="screen">
+                        <div class="bar" style="border-top:0; margin-top:0; padding-top:0">
+                            <span class="btn btn-go">Accept blueprint</span>
+                            <span class="btn btn-acc">Cancel</span>
+                            <span class="btn">Reject and redraft</span>
+                        </div>
+                        <div class="ta">
+                            <div class="cap">What should change?</div>
+                            <div class="val">
+                                The list size should be a dropdown of powers of two, not a slider — 8 up to 128.
+                            </div>
+                        </div>
+                        <div class="bar">
+                            <span class="btn btn-acc">Revise blueprint</span>
+                            <span style="font-size:13px;color:var(--ink-soft)">
+                                Everything you don't mention stays as it is.
+                            </span>
+                        </div>
+                    </div>
+                    <p class="cap-note">
+                        The helper line is the contract, stated to the teacher in their own terms. It is also
+                        literally what the prompt instructs, so the sentence and the behaviour cannot drift.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>C · With unsaved edits — they come along</h3>
+                    <div class="screen">
+                        <div class="bar" style="border-top:0; margin-top:0; padding-top:0">
+                            <span class="btn btn-go">Accept with my changes</span>
+                            <span class="btn btn-acc">Cancel</span>
+                            <span class="btn">Reject and redraft</span>
+                        </div>
+                        <div class="ta">
+                            <div class="cap">What should change?</div>
+                            <div class="val">Add a second graph showing comparisons against list size.</div>
+                        </div>
+                        <div class="warn" style="border-left-color:var(--op-add); color:var(--op-add)">
+                            Your edits to <em>What students can change</em> will be kept and revised together with
+                            this request.
+                        </div>
+                        <div class="bar">
+                            <span class="btn btn-acc">Revise blueprint</span>
+                        </div>
+                    </div>
+                    <p class="cap-note">
+                        Edits and feedback are natural to want together — you fix a slider range yourself because
+                        it is quick and needs no model call, and ask for the graph because it does. The teacher is
+                        told their edits are included, not blocked.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>D · What the version list shows afterwards</h3>
+                    <div class="screen">
+                        <table style="width:100%; border-collapse:collapse; font-size:14px">
+                            <tr style="border-bottom:1px dashed var(--dash)">
+                                <td style="padding:8px 6px; font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--ink-soft)">v2</td>
+                                <td style="padding:8px 6px">Drafted by the model</td>
+                                <td style="padding:8px 6px; color:var(--ink-soft)">superseded</td>
+                            </tr>
+                            <tr style="border-bottom:1px dashed var(--dash)">
+                                <td style="padding:8px 6px; font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--ink-soft)">v3</td>
+                                <td style="padding:8px 6px">Your edits, saved before the request</td>
+                                <td style="padding:8px 6px; color:var(--ink-soft)">superseded</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px 6px; font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--accent)">v4</td>
+                                <td style="padding:8px 6px">Revised from your feedback</td>
+                                <td style="padding:8px 6px; color:var(--op-add)">pending — under review</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <p class="cap-note">
+                        <strong>Nothing is lost in any branch.</strong> If the model call fails, v3 exists and is
+                        still reviewable — which is strictly better than today, where unsaved edits live only in
+                        React state and vanish on a refresh. Without <code>edits</code>, the sequence is simply
+                        v2 → v3 and no intermediate row is written.
+                    </p>
+                </div>
+            </section>
+
+            <!-- FILES -->
+            <section>
+                <div class="section-head"><span class="section-num">05</span><h2>Files</h2></div>
+                <p>Seven updated, none added, none removed. No migration.</p>
+
+                <div class="files">
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/src/llm/prompts.py</span>
+                        <span class="file-note"><code>plan_revision_user_prompt</code>. Reuses <code>PLAN_SYSTEM_PROMPT</code> untouched.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/src/tasks/plan.py</span>
+                        <span class="file-note"><code>revise_plan</code> task plus its <code>_revise</code> one-retry helper, beside the existing generate pair.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/src/job/models.py</span>
+                        <span class="file-note"><code>JobType.REVISE_PLAN</code>. Enum value stored in a <code>CharField</code> — no schema change.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/src/plan/router.py</span>
+                        <span class="file-note">The <code>POST /{plan_id}/revisions</code> endpoint: 409 guard, optional edits persisted as a pending version, dispatch, <code>202 JobAccepted</code>.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/src/plan/schemas.py</span>
+                        <span class="file-note"><code>PlanRevisionRequest</code> — <code>feedback_text</code> with a min length so an empty box cannot spend a model call, plus optional <code>edits: Plan | None</code>, the same shape <code>PlanDecisionRequest</code> already uses so edits re-validate through the same model.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">web/components/PlanWorkspace.tsx</span>
+                        <span class="file-note">Third action, revealed textarea, and the submit — which sends <code>draft</code> as <code>edits</code> when it differs from the stored plan, then sets <code>jobId</code>. Setting <code>jobId</code> is the entire integration: the spinner, the <code>useJob</code> poll, the <code>router.refresh()</code> effect and the <code>sourcePlanId</code> reconciliation all already exist and are agnostic about which job produced the version.</span></span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span><span class="file-path">backend/scripts/try_plan.py</span>
+                        <span class="file-note"><code>--feedback</code> plus <code>--from</code> a saved plan JSON, so the revision prompt can be iterated without the stack.</span></span>
+                    </div>
+                </div>
+                <p style="margin-top:20px">
+                    <strong>Not touched:</strong> <code>PLAN_SCHEMA</code>, the <code>Plan</code> model,
+                    <code>manifest_from_plan</code>, the decision endpoint, <code>plan_versions</code>, and the BFF
+                    proxy. A revision is an ordinary plan generation with a different user prompt — that is the
+                    whole reason this is a one-day change.
+                </p>
+            </section>
+
+            <!-- KEY CODE -->
+            <section>
+                <div class="section-head"><span class="section-num">06</span><h2>Key code</h2></div>
+                <p>Three places where the obvious implementation is the wrong one.</p>
+
+                <div class="code-caption">backend/src/plan/router.py — edits become a version before the model runs</div>
+                <pre class="code"><span class="fn"># The teacher's own edits are persisted BEFORE dispatch, not carried</span>
+<span class="fn"># in the task payload. If the model call fails they still exist as a</span>
+<span class="fn"># reviewable row — today they live only in React state and a refresh</span>
+<span class="fn"># destroys them.</span>
+source = plan
+<span class="kw">if</span> payload.edits <span class="kw">is not</span> <span class="kw">None</span>:
+    plan.decision = PlanDecision.SUPERSEDED
+    <span class="kw">await</span> plan.save()
+    source = <span class="kw">await</span> PlanVersion.create(
+        lab_id=plan.lab_id,
+        version=plan.version + <span class="str">1</span>,
+        raw_llm_response=<span class="kw">None</span>,      <span class="fn"># a human authored this one</span>
+        plan_json=payload.edits.model_dump(),
+        decision=PlanDecision.PENDING,   <span class="fn"># NOT accepted — review continues</span>
+    )
+
+job = <span class="kw">await</span> GenerationJob.create(
+    job_type=JobType.REVISE_PLAN,
+    status=JobStatus.QUEUED,
+    lab_id=plan.lab_id,
+    target_id=source.id,   <span class="fn"># what the revision is based on</span>
+)</pre>
+                <p style="margin-top:12px">
+                    <code>PENDING</code> is the load-bearing word. The existing
+                    <code>accept_with_modifications</code> path writes an edited row as <code>ACCEPTED</code> and
+                    ends the review; here the identical write must leave the review open, or asking for changes
+                    would silently approve the blueprint.
+                </p>
+
+                <div class="code-caption">backend/src/tasks/plan.py — write first, supersede second</div>
+                <pre class="code"><span class="fn"># Order matters. If the model fails, the teacher must still have a</span>
+<span class="fn"># reviewable draft — so the source row is only retired once its</span>
+<span class="fn"># replacement exists. Never mark superseded before the create.</span>
+revised = <span class="kw">await</span> PlanVersion.create(
+    lab_id=lab.id,
+    version=source.version + <span class="str">1</span>,
+    raw_llm_response=raw,
+    plan_json=plan.model_dump(),
+    decision=PlanDecision.PENDING,
+)
+source.decision = PlanDecision.SUPERSEDED
+<span class="kw">await</span> source.save()
+
+<span class="fn"># lab.status stays PLAN_REVIEW and active_plan_id is untouched —</span>
+<span class="fn"># only an acceptance points the lab at a plan.</span></pre>
+
+                <div class="code-caption">backend/src/llm/prompts.py — the preservation instruction</div>
+                <pre class="code"><span class="kw">def</span> <span class="fn">plan_revision_user_prompt</span>(*, plan, feedback, audience, course_title, course_subject):
+    <span class="str">"""Revise an existing blueprint. Same system prompt, same schema."""</span>
+    <span class="kw">return</span> (
+        <span class="str">f"Course: {course_title} ({course_subject})\nAudience: {audience}\n\n"</span>
+        <span class="str">"This simulation blueprint was drafted for the teacher, who has "</span>
+        <span class="str">"asked for changes:\n\n"</span>
+        <span class="str">f"{json.dumps(plan, indent=2)}\n\n"</span>
+        <span class="str">f"The teacher's words:\n\n{feedback.strip()}\n\n"</span>
+        <span class="str">"Return the COMPLETE blueprint with their request applied. Change "</span>
+        <span class="str">"only what they asked about and what must follow from it — if a "</span>
+        <span class="str">"control changes, the behavior rules and expected observations that "</span>
+        <span class="str">"mention it must change with it. Everything they did not raise must "</span>
+        <span class="str">"come back word for word. Do not re-word, re-order, improve, or "</span>
+        <span class="str">"re-title anything they did not mention."</span>
+    )</pre>
+                <p style="margin-top:12px">
+                    The second half of that instruction is the load-bearing part. "Preserve everything not
+                    mentioned" alone invites the model to quietly re-word prose it thinks it can improve, and the
+                    teacher then has to re-read a document they had already approved. But a control change
+                    genuinely <em>must</em> propagate into the rules and observations that reference it — so the
+                    instruction has to permit consequential edits while forbidding cosmetic ones.
+                </p>
+
+            </section>
+
+            <!-- FUTURE SCOPE -->
+            <section>
+                <div class="section-head"><span class="section-num">07</span><h2>Future scope</h2></div>
+                <p>Assumptions I made without asking, and one decision worth taking at review.</p>
+
+                <div class="future-item">
+                    <h3>Should the feedback text be stored?</h3>
+                    <p>
+                        Assumed no — the POC keeps it only in the prompt. But version history then shows
+                        <em>that</em> v3 replaced v2 without showing <em>why</em>, which is exactly the question
+                        append-only versioning exists to answer, and it is the first thing you will want when a
+                        revision goes wrong. A nullable <code>revision_feedback</code> text column on
+                        <code>plan_versions</code> would fix it for one reviewed migration. I would take it now;
+                        it gets more expensive once there are rows worth explaining.
+                    </p>
+                    <div class="meta">Decide at plan review · costs one migration</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>A revision with edits writes two rows, not one</h3>
+                    <p>
+                        Accepted as the cost of losing nothing. A teacher who edits and asks for changes three
+                        times produces six versions, and the history list will read as noisier than the number of
+                        decisions they actually made. If that becomes uncomfortable, the fix is presentational —
+                        collapse a human-authored row and the revision that consumed it into one history entry —
+                        not a change to what gets written. Never merge them at the storage layer; the whole
+                        guarantee is that the edit survives a failed model call.
+                    </p>
+                    <div class="meta">Presentational fix if history gets noisy</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Reject should get quieter once this ships</h3>
+                    <p>
+                        Reject and redraft throws away the blueprint and returns the teacher to their original
+                        prose; the regeneration never sees what was rejected or why. That stays the right action
+                        for a genuinely misread request — wrong topic, wrong concept, wrong level — but it stops
+                        being the normal one. Worth demoting it visually in slice 4 so Request changes reads as
+                        the default response to "this isn't right yet".
+                    </p>
+                    <div class="meta">Fold into slice 4</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Ambiguous feedback has no clarification path</h3>
+                    <p>
+                        "Make it better" will produce <em>something</em>, because the schema forces a complete
+                        blueprint. Call #3 solves this properly with an <code>outcome</code> discriminator that lets
+                        the model ask a question instead of guessing (spec §6). Worth copying here once call #3
+                        exists — not worth designing twice.
+                    </p>
+                    <div class="meta">After milestone 4</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>No limit on revision rounds</h3>
+                    <p>
+                        A teacher can revise indefinitely, and each round is a real model call and a new row.
+                        Fine for a demo, and the version list makes the cost visible. Worth a look only if a
+                        blueprint reaches double-digit versions in practice.
+                    </p>
+                    <div class="meta">Not a POC concern</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Deliberately out of scope</h3>
+                    <p>
+                        Transport-bar plumbing (<code>time_stepped</code>) and the control-versus-rules coherence
+                        validator are both still queued ahead of milestone 3. Neither touches this work, and mixing
+                        them in would make one approval cover three unrelated changes.
+                    </p>
+                    <div class="meta">Sequenced after this</div>
+                </div>
+            </section>
+        </div>
+    </body>
+</html>

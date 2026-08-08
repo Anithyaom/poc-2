@@ -1,0 +1,247 @@
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}
+⨯ Error: GET /api/courses failed (502)
+    at apiGet (lib\api.ts:31:11)
+    at async CourseListPage (app\page.tsx:11:19)
+  29 |   }
+  30 |   if (!res.ok) {
+> 31 |     throw new ApiError(res.status, `GET ${path} failed (${res.status})`);
+     |           ^
+  32 |   }
+  33 |   return res.json() as Promise<T>;
+  34 | } {
+  status: 502,
+  digest: '1323480264'
+}

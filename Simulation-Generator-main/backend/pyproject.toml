@@ -1,0 +1,42 @@
+[project]
+name = "simgen-backend"
+version = "0.1.0"
+description = "simgen POC backend — FastAPI + Celery + Tortoise ORM"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.121.0",
+    "uvicorn[standard]>=0.40.0",
+    "pydantic>=2.13.0",
+    "pydantic-settings>=2.7.0",
+    "tortoise-orm[asyncpg,psycopg]>=1.1.0",
+    "celery>=5.5.0",
+    "redis>=6.0.0",
+    "openai>=2.50.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "pytest>=8.3.0",
+]
+
+# The suite covers pure functions only — no database, no network, no Celery. Those
+# are exercised by running the stack; these are the checks that must never regress
+# silently, and they run in under a second.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# Verified against tortoise-orm 1.1.7: the CLI reads this key from the
+# pyproject.toml in its cwd, so migration commands run from backend/.
+[tool.tortoise]
+tortoise_orm = "src.config.database.TORTOISE_ORM"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Migrations are generated, reviewed, and committed as-is — not ours to restyle.
+extend-exclude = ["src/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

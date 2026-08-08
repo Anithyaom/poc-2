@@ -1,0 +1,1122 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Milestone 3 — Simulation generation — Implementation plan</title>
+        <style>
+            :root {
+                --bg: #f5f0e1;
+                --paper: #fbf8ec;
+                --paper-soft: #f1ead5;
+                --ink: #1a2e1f;
+                --ink-soft: #5a6b5a;
+                --accent: #b4541a;
+                --rule: #d8cfb4;
+                --dash: #b9b29a;
+                --tag-bg: #ece5d0;
+                --op-add: #2d5938;
+                --op-mod: #856104;
+                --op-del: #8a3320;
+            }
+            * { box-sizing: border-box; }
+            html, body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+                font-size: 17px;
+                line-height: 1.55;
+            }
+            .page { max-width: 820px; margin: 0 auto; padding: 40px 24px 96px; }
+
+            .eyebrow {
+                font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            h1 {
+                font-size: 40px; line-height: 1.15;
+                margin: 6px 0 20px; font-weight: 600; color: var(--ink);
+                letter-spacing: -0.01em;
+            }
+            h2 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -0.005em; }
+            h3 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+            p { margin: 8px 0; }
+            code { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 0.92em; }
+
+            .prompt-box {
+                background: var(--paper-soft);
+                border: 1px solid var(--rule);
+                border-radius: 10px;
+                padding: 16px 18px;
+                margin: 20px 0 36px;
+            }
+            .prompt-box .plabel {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--accent);
+                margin-bottom: 6px;
+            }
+            .prompt-box p { margin: 0; color: var(--ink); font-size: 16px; }
+
+            .bubbles {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px; margin: 24px 0 56px;
+            }
+            .bubble {
+                background: #fff;
+                border: 1px solid var(--rule);
+                border-radius: 8px;
+                padding: 14px 16px;
+            }
+            .bubble .label {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            .bubble .value {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 18px; font-weight: 500;
+                margin-top: 4px; color: var(--ink);
+            }
+
+            section { margin: 56px 0; }
+            .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+            .section-num {
+                font-family: ui-monospace, Menlo, monospace;
+                color: var(--ink-soft);
+                font-size: 11px; letter-spacing: 0.08em;
+                background: var(--tag-bg);
+                border-radius: 4px; padding: 2px 7px;
+            }
+            section > p:first-of-type { color: var(--ink-soft); margin: 4px 0 24px; }
+
+            .timeline { margin-top: 8px; }
+            .milestone {
+                display: grid;
+                grid-template-columns: 130px 28px 1fr;
+                gap: 14px;
+                padding-bottom: 28px;
+                position: relative;
+            }
+            .milestone .when {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; letter-spacing: 0.04em;
+                color: var(--ink-soft); padding-top: 4px;
+                text-align: right;
+            }
+            .milestone .rail { position: relative; display: flex; justify-content: center; }
+            .milestone .rail::before {
+                content: ""; position: absolute;
+                top: 0; bottom: -28px; left: 50%;
+                width: 1px; background: var(--rule);
+                transform: translateX(-0.5px);
+            }
+            .milestone:last-child .rail::before { bottom: 0; }
+            .milestone .dot {
+                position: relative; z-index: 1;
+                width: 11px; height: 11px; border-radius: 50%;
+                margin-top: 8px;
+                background: var(--op-add);
+                border: 2px solid var(--op-add);
+            }
+            .milestone.upcoming .dot { background: var(--bg); border: 2px solid var(--accent); }
+            .milestone .body { padding-top: 2px; }
+            .tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+            .tag {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px;
+                background: var(--tag-bg);
+                border: 1px solid var(--rule);
+                padding: 2px 8px; border-radius: 4px;
+                color: var(--ink);
+            }
+
+            .flow {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 12px;
+                padding: 22px;
+                overflow-x: auto;
+            }
+            .flow svg { width: 100%; height: auto; display: block; }
+            .legend {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft);
+                margin-top: 12px;
+            }
+
+            .mock {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 12px;
+                padding: 20px; margin: 16px 0;
+            }
+            .mock h3 { margin-bottom: 12px; }
+
+            .files { display: grid; grid-template-columns: 1fr; gap: 0; }
+            .file-row {
+                display: grid;
+                grid-template-columns: 80px 1fr;
+                gap: 12px; align-items: baseline;
+                border-bottom: 1px dashed var(--dash);
+                padding: 10px 0;
+            }
+            .file-op {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+            .op-add { color: var(--op-add); }
+            .op-mod { color: var(--op-mod); }
+            .op-del { color: var(--op-del); }
+            .file-path { font-family: ui-monospace, Menlo, monospace; font-size: 14px; color: var(--ink); }
+            .file-note { color: var(--ink-soft); font-size: 14px; margin-top: 3px; display: block; }
+
+            pre.code {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 8px;
+                padding: 14px 16px; overflow-x: auto;
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 13px; line-height: 1.55;
+                color: var(--ink);
+            }
+            .code-caption {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft);
+                margin: 18px 0 6px;
+            }
+
+            .future-item { border-top: 1px solid var(--rule); padding: 16px 0; }
+            .future-item:last-child { border-bottom: 1px solid var(--rule); }
+            .future-item .meta {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.04em;
+                color: var(--ink-soft); margin-top: 6px;
+            }
+
+            .node { fill: var(--paper); stroke: var(--ink); stroke-width: 2.5; }
+            .node-new { fill: var(--paper); stroke: var(--accent); stroke-width: 2.5; }
+            .node-label { font-family: ui-monospace, Menlo, monospace; font-size: 12px; fill: var(--ink); }
+            .node-sub { font-family: ui-monospace, Menlo, monospace; font-size: 10px; fill: var(--ink-soft); }
+            .stroke-solid { stroke: var(--ink); stroke-width: 2; fill: none; }
+            .stroke-dash { stroke: var(--ink); stroke-width: 2; fill: none; stroke-dasharray: 6 5; }
+            .edge-label { font-family: ui-monospace, Menlo, monospace; font-size: 10px; fill: var(--ink-soft); }
+
+            /* mockup primitives */
+            .mk { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+            .mk-frame { border: 1px solid var(--rule); border-radius: 8px; background: #fff; overflow: hidden; }
+            .mk-bar {
+                border-bottom: 1px solid var(--rule); padding: 8px 12px;
+                color: var(--ink-soft); display: flex; justify-content: space-between; align-items: center;
+            }
+            .mk-body { display: grid; grid-template-columns: 165px 1fr 178px; min-height: 250px; }
+            .mk-context {
+                border-right: 1px solid var(--rule); padding: 12px;
+                display: flex; flex-direction: column; gap: 12px;
+            }
+            .mk-ctx-h { color: var(--accent); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+            .mk-ctx-b { color: var(--ink-soft); font-size: 10px; line-height: 1.5; margin-top: 3px; }
+            .mk-canvas {
+                border-right: 1px solid var(--rule);
+                display: flex; align-items: center; justify-content: center;
+                color: var(--ink-soft); position: relative; padding: 14px;
+            }
+            .mk-panel { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+            .mk-transport { display: flex; gap: 4px; }
+            .mk-btn {
+                flex: 1; border: 1px solid var(--rule); border-radius: 4px;
+                padding: 4px 0; text-align: center; color: var(--ink); background: var(--paper);
+            }
+            .mk-lbl { color: var(--ink-soft); display: flex; justify-content: space-between; }
+            .mk-track { height: 3px; background: var(--rule); border-radius: 2px; position: relative; margin-top: 5px; }
+            .mk-thumb {
+                width: 9px; height: 9px; border-radius: 50%; background: var(--op-add);
+                position: absolute; top: -3px;
+            }
+            .mk-readout { display: flex; justify-content: space-between; border-top: 1px solid var(--rule); padding-top: 8px; }
+            .mk-note { color: var(--ink-soft); margin-top: 10px; font-size: 11px; }
+            .mk-fail {
+                border: 1px solid var(--op-del); border-radius: 6px; background: #fff;
+                padding: 10px 12px; color: var(--op-del);
+            }
+            @media (max-width: 640px) {
+                .milestone { grid-template-columns: 90px 22px 1fr; gap: 10px; }
+                h1 { font-size: 32px; }
+                h2 { font-size: 22px; }
+                .mk-body { grid-template-columns: 1fr; }
+                .mk-canvas { border-right: none; border-bottom: 1px solid var(--rule); }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <div class="eyebrow">Implementation plan · simgen POC</div>
+            <h1>Milestone 3 — Simulation generation</h1>
+
+            <div class="prompt-box">
+                <div class="plabel">Prompt</div>
+                <p>
+                    Build milestone 3: the accepted blueprint projects its manifest, LLM call #2 turns it into a
+                    working sandboxed simulation, and the shell renders the approved controls. Build the
+                    plan-coherence cross-check first so an incoherent blueprint never reaches generation. Keep
+                    generation single-shot behind a deterministic validation gate rather than an LLM self-review
+                    loop — and push core ambition, since we have the token headroom.
+                </p>
+            </div>
+
+            <div class="bubbles">
+                <div class="bubble">
+                    <div class="label">Effort</div>
+                    <div class="value">~5 days</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Files added</div>
+                    <div class="value">11</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Files updated</div>
+                    <div class="value">8</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Files removed</div>
+                    <div class="value">6</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Migration</div>
+                    <div class="value">0005</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Token headroom</div>
+                    <div class="value">22% used</div>
+                </div>
+            </div>
+
+            <!-- 1. MILESTONES -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">01</span>
+                    <h2>Milestones</h2>
+                </div>
+                <p>
+                    Seven slices. The first is a gate that has nothing to do with generation — it stops a
+                    self-contradicting blueprint reaching call #2 at all. Slices 2–5 are the pipeline. The last two
+                    are quality and cleanup, deliberately after a core has rendered in a real browser.
+                </p>
+
+                <div class="timeline">
+                    <div class="milestone">
+                        <div class="when">Day 1</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Plan-coherence cross-check</h3>
+                            <p>
+                                Open item 7, closed. A deterministic check reads numbers out of
+                                <code>behavior_rules</code> and <code>initial_state</code> and tests them against each
+                                control's declared type, range and default. Disagreement fails the plan job with the
+                                raw response kept — the same failure path as malformed JSON. Three real failures have
+                                already shipped past prompt pressure; this is the only fix a persuasive-sounding plan
+                                cannot talk its way past.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/llm/coherence.py</span>
+                                <span class="tag">src/tasks/plan.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 2 · am</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>The simulations table and its package</h3>
+                            <p>
+                                <code>src/simulation/</code> in the domain-per-package shape — models, schemas, router.
+                                The <code>simulations</code> table from spec §5, plus migration <code>0005</code>
+                                (<code>0004</code> is now the <code>time_stepped</code> backfill).
+                                Exactly one row per <code>(lab_id, component_ref)</code> carries
+                                <code>is_current</code>; <code>component_ref</code> is the constant <code>main</code>
+                                and never shown to a teacher.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/simulation/</span>
+                                <span class="tag">src/migrations/</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 2 · pm</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Call #2 and the generation task</h3>
+                            <p>
+                                <code>sim_core_user_prompt</code> builds the request from the complete accepted
+                                blueprint plus <code>manifest_from_plan(plan)</code>.
+                                <code>generate_simulation</code> follows <code>src/tasks/plan.py</code> exactly: job row
+                                → running → validate → persist → succeeded. Verified already — this returns a working
+                                core single-shot in ~91s.
+                            </p>
+                            <p>
+                                <strong>The route must guard the accepted plan first.</strong> Four labs sit in
+                                <code>plan_accepted</code> today and one of them holds a retired lesson-plan row, so
+                                <code>Plan(**plan_json)</code> raises before a job is ever queued. Re-validate in the
+                                route and return <code>409</code> with "this blueprint predates the current format —
+                                draft a fresh one", rather than letting a <code>ValidationError</code> become a 500 or,
+                                worse, a failed job the teacher has to interpret.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/llm/prompts.py</span>
+                                <span class="tag">src/tasks/simulation.py</span>
+                                <span class="tag">src/lab/router.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 3 · am</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>The validation gate</h3>
+                            <p>
+                                <code>validate_core</code> asserts the handshake before anything is persisted: complete
+                                document, CSP present, every required message handled, all four transport messages when
+                                <code>time_stepped</code>, every approved id used verbatim, and no control UI of its own.
+                                A failure retries once <em>with the specific problems fed back</em> — grounded feedback,
+                                not self-critique.
+                            </p>
+                            <p>
+                                <strong>The same seam injects the core's styles.</strong> Once the gate passes,
+                                <code>inject_tokens</code> deterministically writes a host-authored
+                                <code>&lt;style&gt;</code> block into the document's <code>&lt;head&gt;</code> — CSS
+                                custom properties for palette, type scale and spacing. The model is told to use the
+                                tokens; we guarantee they exist rather than hoping. Ships with a real, validated set —
+                                see §05 — so slice 6 becomes a CSS edit instead of a pipeline change, and every stored
+                                core is restyleable without regenerating it.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/simulation/validate.py</span>
+                                <span class="tag">src/simulation/styles.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 3 · pm</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>The simulation workspace</h3>
+                            <p>
+                                <code>/labs/[id]/sim</code> — the payoff screen, in <strong>three regions</strong>
+                                like every reference lab: left is blueprint context (objective, what students should
+                                notice, expected observations), centre is the sandboxed core, right is
+                                <code>ControlPanel</code> with the transport bar and readouts. All three are
+                                host-rendered React; the core still owns only the centre. Server shell reads with
+                                <code>cache: 'no-store'</code>.
+                            </p>
+                            <p>
+                                The left panel is new but cheap, and it earns its place twice: it is where most of the
+                                reference layout's substance actually lives, and it finally puts the teacher's approved
+                                blueprint text on screen next to the thing built from it — with zero added LLM risk,
+                                because no model wrote any of it.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">web/app/labs/[id]/sim</span>
+                                <span class="tag">web/components/SimWorkspace.tsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 4</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Raise core ambition</h3>
+                            <p>
+                                Only once a real core renders. A 3.6k-token core uses 22% of the ceiling; a three-panel
+                                core with a plot is perhaps 8–10k and still fits. Populate the design tokens from
+                                slice 4, then push the contract toward linked views, plotted history and richer visual
+                                state — while holding the split: the shell owns every control, the core owns the scene.
+                            </p>
+                            <p>
+                                <strong>The reference is a direction, not a benchmark.</strong> Take its region model
+                                and its one good instinct — colour that encodes data, as in Buffer Overflow's memory
+                                blocks. Reject the rest: decorative palettes that mean nothing across labs, red/green
+                                series encoding, walls of numbered instructions, containers nested four deep, and star
+                                ratings in the most valuable space on the page. The bar is <em>"every simgen simulation
+                                feels like one product"</em>, which the reference structurally cannot claim — its six
+                                labs were hand-built separately and look it. Rules the contract enforces: never a hex
+                                literal, at most three tracked quantities, one axis and never two y-scales, recessive
+                                grid, and a visible label on every distinct element.
+                            </p>
+                            <p>
+                                <strong>No external libraries, now or later.</strong> The CSP is
+                                <code>default-src 'none'</code>, so there is no CDN and no fetch, and loosening it is a
+                                locked decision. Native platform covers more than it sounds: Canvas 2D, SVG, CSS Grid,
+                                the Web Animations API, and <strong>MathML</strong> for equations — natively supported
+                                in current Chrome, Safari and Firefox, so the Quantum sample's rendering needs no
+                                KaTeX. If plotting repetition becomes real, inject a ~2KB host-authored
+                                <code>axes()</code>/<code>plot()</code> helper through the slice 4 seam: it costs
+                                <em>zero</em> output tokens because we write it, not the model, and every chart then
+                                matches by construction.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/llm/prompts.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Day 5</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Delete the spike</h3>
+                            <p>
+                                <code>src/spike/</code>, <code>src/tasks/spike.py</code>, <code>web/app/spike/</code>
+                                and the <code>spike_simulations</code> table. Last, not first — the spike stays a
+                                working reference until the real path replaces it. Its job shape has already been copied
+                                into <code>generate_simulation</code>.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">src/spike/</span>
+                                <span class="tag">web/app/spike/</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. DATA FLOW -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">02</span>
+                    <h2>Data flow</h2>
+                </div>
+                <p>
+                    Four bands: the plan gate, the trigger, the worker, and the read path. Solid lines are
+                    request/response and direct calls; the single dashed line is the Celery dispatch — the only
+                    async hop.
+                </p>
+
+                <div class="flow">
+                    <svg viewBox="0 0 720 620" xmlns="http://www.w3.org/2000/svg" aria-label="Milestone 3 data flow">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M0,0 L10,5 L0,10 z" fill="#1a2e1f" />
+                            </marker>
+                        </defs>
+
+                        <!-- BAND 1 — plan gate -->
+                        <text class="node-sub" x="30" y="16">1 · plan gate</text>
+                        <rect class="node" x="30" y="24" width="180" height="56" />
+                        <text class="node-label" x="120" y="48" text-anchor="middle">generate_plan</text>
+                        <text class="node-sub" x="120" y="64" text-anchor="middle">src/tasks/plan.py</text>
+
+                        <rect class="node-new" x="270" y="24" width="180" height="56" />
+                        <text class="node-label" x="360" y="48" text-anchor="middle">check_coherence</text>
+                        <text class="node-sub" x="360" y="64" text-anchor="middle">src/llm/coherence.py</text>
+
+                        <rect class="node" x="510" y="24" width="180" height="56" />
+                        <text class="node-label" x="600" y="48" text-anchor="middle">plan_versions</text>
+                        <text class="node-sub" x="600" y="64" text-anchor="middle">postgres</text>
+
+                        <path class="stroke-solid" d="M210 52 L262 52" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="236" y="44" text-anchor="middle">Plan</text>
+                        <path class="stroke-solid" d="M450 52 L502 52" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="476" y="44" text-anchor="middle">persist</text>
+                        <text class="edge-label" x="360" y="98" text-anchor="middle">disagreement → job fails, raw kept</text>
+
+                        <!-- BAND 2 — trigger -->
+                        <text class="node-sub" x="30" y="146">2 · trigger</text>
+                        <rect class="node" x="30" y="154" width="180" height="56" />
+                        <text class="node-label" x="120" y="178" text-anchor="middle">PlanWorkspace</text>
+                        <text class="node-sub" x="120" y="194" text-anchor="middle">web/components</text>
+
+                        <rect class="node-new" x="270" y="154" width="180" height="56" />
+                        <text class="node-label" x="360" y="178" text-anchor="middle">simulations:generate</text>
+                        <text class="node-sub" x="360" y="194" text-anchor="middle">src/lab/router.py</text>
+
+                        <rect class="node" x="510" y="154" width="180" height="56" />
+                        <text class="node-label" x="600" y="178" text-anchor="middle">generation_jobs</text>
+                        <text class="node-sub" x="600" y="194" text-anchor="middle">postgres</text>
+
+                        <path class="stroke-solid" d="M210 182 L262 182" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="236" y="174" text-anchor="middle">accept</text>
+                        <path class="stroke-solid" d="M450 182 L502 182" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="476" y="174" text-anchor="middle">INSERT</text>
+
+                        <!-- BAND 3 — worker -->
+                        <text class="node-sub" x="30" y="276">3 · worker</text>
+                        <rect class="node-new" x="270" y="284" width="180" height="56" />
+                        <text class="node-label" x="360" y="308" text-anchor="middle">generate_simulation</text>
+                        <text class="node-sub" x="360" y="324" text-anchor="middle">src/tasks/simulation.py</text>
+
+                        <path class="stroke-dash" d="M360 210 L360 276" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="372" y="248">enqueue</text>
+
+                        <rect class="node" x="30" y="404" width="180" height="56" />
+                        <text class="node-label" x="120" y="428" text-anchor="middle">manifest_from_plan</text>
+                        <text class="node-sub" x="120" y="444" text-anchor="middle">src/llm/schemas.py</text>
+
+                        <rect class="node" x="270" y="404" width="180" height="56" />
+                        <text class="node-label" x="360" y="428" text-anchor="middle">call #2 · gpt-5.5</text>
+                        <text class="node-sub" x="360" y="444" text-anchor="middle">src/llm/client.py</text>
+
+                        <rect class="node-new" x="510" y="404" width="180" height="56" />
+                        <text class="node-label" x="600" y="428" text-anchor="middle">validate_core</text>
+                        <text class="node-sub" x="600" y="444" text-anchor="middle">src/simulation/validate.py</text>
+
+                        <path class="stroke-solid" d="M270 312 L120 312 L120 396" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="130" y="360">project manifest</text>
+                        <path class="stroke-solid" d="M360 340 L360 396" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="372" y="372">core_html</text>
+                        <path class="stroke-solid" d="M450 432 L502 432" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="476" y="424" text-anchor="middle">gate</text>
+
+                        <!-- retry loop, routed above the row -->
+                        <path class="stroke-solid" d="M560 404 L560 380 L400 380 L400 404" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="480" y="374" text-anchor="middle">retry once, with the failures</text>
+
+                        <!-- BAND 4 — read path -->
+                        <text class="node-sub" x="30" y="526">4 · read path</text>
+                        <rect class="node-new" x="510" y="534" width="180" height="56" />
+                        <text class="node-label" x="600" y="558" text-anchor="middle">simulations</text>
+                        <text class="node-sub" x="600" y="574" text-anchor="middle">postgres · is_current</text>
+
+                        <rect class="node-new" x="30" y="534" width="180" height="56" />
+                        <text class="node-label" x="120" y="558" text-anchor="middle">SimWorkspace</text>
+                        <text class="node-sub" x="120" y="574" text-anchor="middle">web/app/labs/[id]/sim</text>
+
+                        <path class="stroke-solid" d="M600 460 L600 526" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="612" y="498">v1 · is_current</text>
+                        <path class="stroke-solid" d="M502 562 L218 562" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="360" y="554" text-anchor="middle">GET /api/simulations/{id} · no-store</text>
+                    </svg>
+                </div>
+                <div class="legend">
+                    Solid = request/response. Dashed = async / fire-and-forget. Terracotta border = new module.<br />
+                    The only LLM call is band 3. Everything between the manifest and the shell is deterministic.
+                </div>
+            </section>
+
+            <!-- 3. MOCKUPS -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">03</span>
+                    <h2>Mockups</h2>
+                </div>
+                <p>
+                    Two surfaces. A is the payoff screen and reuses existing components verbatim. B is what the
+                    coherence gate looks like when it fires — a teacher-readable reason, not a stack trace.
+                </p>
+
+                <div class="mock">
+                    <h3>A · Simulation workspace — <code>/labs/[id]/sim</code></h3>
+                    <div class="mk mk-frame">
+                        <div class="mk-bar">
+                            <span>Physics / Launch Angle and Projectile Arc</span>
+                            <span>v1 · current</span>
+                        </div>
+                        <div class="mk-body">
+                            <div class="mk-context">
+                                <div>
+                                    <div class="mk-ctx-h">What it teaches</div>
+                                    <div class="mk-ctx-b">Launch angle changes the shape of the path, not just its length.</div>
+                                </div>
+                                <div>
+                                    <div class="mk-ctx-h">What to notice</div>
+                                    <div class="mk-ctx-b">
+                                        · 45° gives the greatest distance.<br />
+                                        · 30° and 60° land in the same place.<br />
+                                        · Doubling speed quadruples range.
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="mk-ctx-h">Blueprint</div>
+                                    <div class="mk-ctx-b">v2 · accepted</div>
+                                </div>
+                            </div>
+                            <div class="mk-canvas">
+                                <span>&#9585;&#9586;&nbsp; sandboxed core — arc trace + height plot</span>
+                            </div>
+                            <div class="mk-panel">
+                                <div class="mk-transport">
+                                    <div class="mk-btn">Step</div>
+                                    <div class="mk-btn">Run</div>
+                                    <div class="mk-btn">Pause</div>
+                                    <div class="mk-btn">Reset</div>
+                                </div>
+                                <div>
+                                    <div class="mk-lbl"><span>Launch angle</span><span>45 °</span></div>
+                                    <div class="mk-track"><div class="mk-thumb" style="left: 48%"></div></div>
+                                </div>
+                                <div>
+                                    <div class="mk-lbl"><span>Launch speed</span><span>20 m/s</span></div>
+                                    <div class="mk-track"><div class="mk-thumb" style="left: 62%"></div></div>
+                                </div>
+                                <div class="mk-readout"><span>Flight time</span><span>2.88 s</span></div>
+                                <div class="mk-readout" style="border-top: none"><span>Maximum height</span><span>10.20 m</span></div>
+                                <div class="mk-readout" style="border-top: none"><span>Distance</span><span>40.79 m</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="mk-note">
+                        Three regions, two of them ours outright. The left panel is the teacher's approved blueprint
+                        text — no model wrote it. The transport bar appears because the blueprint set
+                        <code>time_stepped</code>. Both the bar and the sliders are host-rendered from the manifest.
+                        The core owns the centre only.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>B · Coherence gate fires — blueprint screen</h3>
+                    <div class="mk mk-frame">
+                        <div class="mk-bar"><span>Computer Science / Binary search</span><span>generation failed</span></div>
+                        <div style="padding: 14px">
+                            <div class="mk mk-fail">
+                                This blueprint contradicts itself, so it was not saved.<br /><br />
+                                &ldquo;Number of items&rdquo; is offered as a slider from 0 to 100, but the rules below
+                                it list specific choices &mdash; 8, 16, 32, 64, 128. A control that offers set choices
+                                needs to be a dropdown.
+                            </div>
+                            <p class="mk-note">Try again &nbsp;·&nbsp; Edit your description</p>
+                        </div>
+                    </div>
+                    <p class="mk-note">
+                        No generator vocabulary, no field names, no stack trace &mdash; same rule as the rest of the
+                        review screen. The teacher is told what disagrees, in the words they already read.
+                    </p>
+                </div>
+            </section>
+
+            <!-- 4. FILES -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">04</span>
+                    <h2>Files</h2>
+                </div>
+                <p>
+                    One new backend package, one new frontend route, two new gates — and the spike deleted. No new
+                    shell components: <code>SandboxedSimFrame</code> and <code>ControlPanel</code> are reused as they
+                    stand.
+                </p>
+
+                <div class="files">
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/llm/coherence.py</span>
+                            <span class="file-note">The plan cross-check. Pure function over a validated <code>Plan</code>, returns teacher-readable problems.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/simulation/models.py</span>
+                            <span class="file-note">The <code>simulations</code> table. Unique partial index enforcing one <code>is_current</code> per <code>(lab_id, component_ref)</code>.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/simulation/router.py</span>
+                            <span class="file-note"><code>GET /api/simulations/{id}</code> and <code>GET /api/labs/{id}/simulations</code> from spec §9.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/simulation/schemas.py</span>
+                            <span class="file-note">Read models. <code>core_html</code> is returned whole — the frontend needs the document to mount it.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/simulation/validate.py</span>
+                            <span class="file-note">The generation gate. Never trusts LLM output; runs before anything is persisted.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/simulation/styles.py</span>
+                            <span class="file-note">Host-authored design tokens plus <code>inject_tokens()</code>. The one place a generated core's palette and type scale is decided.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/tasks/simulation.py</span>
+                            <span class="file-note"><code>generate_simulation</code>, modelled line for line on <code>tasks/plan.py</code>.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">backend/src/migrations/0005_*.py</span>
+                            <span class="file-note">Creates <code>simulations</code>, drops <code>spike_simulations</code>. Generated, reviewed, committed — never by the entrypoint.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">web/app/labs/[id]/sim/page.tsx</span>
+                            <span class="file-note">Server shell. <code>force-dynamic</code> + <code>no-store</code>, or a fresh generation renders stale.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">web/components/SimWorkspace.tsx</span>
+                            <span class="file-note">Client workspace: the three-region layout, values, readouts, the frame ref and the transport callbacks.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-add">add</span>
+                        <span>
+                            <span class="file-path">web/components/BlueprintContext.tsx</span>
+                            <span class="file-note">The left panel — objective, what to notice, blueprint version. Pure presentation, reads the accepted plan.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/llm/prompts.py</span>
+                            <span class="file-note"><code>sim_core_user_prompt</code>; later, the ambition pass on <code>SIM_CORE_CONTRACT</code>.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/tasks/plan.py</span>
+                            <span class="file-note">Runs the coherence check after validation, before the row is written. Applies to revisions too.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/lab/router.py</span>
+                            <span class="file-note"><code>POST /api/labs/{id}/simulations:generate</code> → <code>202 {job_id}</code>. 409 unless the lab has an accepted plan <em>that still validates as a <code>Plan</code></em> — one live lab's does not.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/worker.py · src/main.py</span>
+                            <span class="file-note">Register the task and mount the router. Check <code>app.tasks</code> under both import orders — the cycle is fragile.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/config/database.py</span>
+                            <span class="file-note">Add the simulation models, drop the spike models.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">web/lib/types.ts</span>
+                            <span class="file-note"><code>Simulation</code>, mirroring the read schema.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">web/components/PlanWorkspace.tsx</span>
+                            <span class="file-note">Accept now enqueues generation and routes to the workspace — the blueprint screen stops being a dead end.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-del">remove</span>
+                        <span>
+                            <span class="file-path">backend/src/spike/ · backend/src/tasks/spike.py</span>
+                            <span class="file-note">Milestone-0 throwaway. Its job shape lives on in <code>generate_simulation</code>.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-del">remove</span>
+                        <span>
+                            <span class="file-path">web/app/spike/page.tsx</span>
+                            <span class="file-note">Replaced by the real workspace.</span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-del">remove</span>
+                        <span>
+                            <span class="file-path">backend/src/llm/schemas.py :: SIMULATION_SCHEMA</span>
+                            <span class="file-note">The last two-field <code>{manifest, core_html}</code> shape, plus <code>SimulationOutput</code> and <code>SPIKE_SYSTEM_PROMPT</code>.</span>
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. KEY CODE -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">05</span>
+                    <h2>Key code</h2>
+                </div>
+                <p>
+                    The four places this goes wrong quietly: a cross-check that cries wolf, a gate that passes a broken
+                    core, a token block improvised by taste, and a retry that learns nothing from the failure.
+                </p>
+
+                <div class="code-caption">backend/src/llm/coherence.py</div>
+                <pre class="code">_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+
+def check_coherence(plan: Plan) -> list[str]:
+    """Numbers a rule names must be reachable from the control it names.
+
+    Heuristic by necessity — prose is prose. It fires only when a rule mentions a
+    control by label AND names numbers, so a vague rule is deliberately allowed
+    through. A false positive here blocks a good blueprint, which is worse than
+    the failure it prevents; bias hard toward silence.
+    """
+    problems: list[str] = []
+    prose = [*plan.behavior_rules, plan.simulation_experience.initial_state]
+
+    for control in plan.controls:
+        if control.type not in ("slider", "number"):
+            continue
+        for line in prose:
+            if control.label.lower() not in line.lower():
+                continue
+            values = [float(n) for n in _NUMBER.findall(line)]
+            if _enumerates(line, values):
+                problems.append(
+                    f"{control.label!r} is offered as a {control.type}, but a rule "
+                    f"lists set choices ({_fmt(values)}) — that means a dropdown."
+                )
+            elif outside := [v for v in values if not control.min &lt;= v &lt;= control.max]:
+                problems.append(
+                    f"{control.label!r} allows {control.min}–{control.max}, "
+                    f"but a rule names {_fmt(outside)}."
+                )
+    return problems</pre>
+
+                <div class="code-caption">backend/src/simulation/validate.py</div>
+                <pre class="code">_REQUIRED = ("sim:init", "sim:set", "sim:ready", "sim:readout")
+_TRANSPORT = ("sim:play", "sim:pause", "sim:step", "sim:reset")
+_OWN_UI = re.compile(r"&lt;(button|input|select)\b", re.I)
+
+def validate_core(core_html: str, manifest: Manifest) -> list[str]:
+    """The shell/core contract, checked before anything is persisted."""
+    problems: list[str] = []
+    if not core_html.lstrip()[:15].lower().startswith("&lt;!doctype html"):
+        problems.append("not a complete HTML document")
+    if "Content-Security-Policy" not in core_html:
+        problems.append("the network-blocking CSP meta tag is missing")
+    problems += [f"never handles {m}" for m in _REQUIRED if m not in core_html]
+    if manifest.time_stepped:
+        problems += [f"time-stepped but never handles {m}"
+                     for m in _TRANSPORT if m not in core_html]
+    if _OWN_UI.search(core_html):
+        problems.append("draws its own controls — the shell owns every control")
+    approved = [p.id for p in manifest.parameters] + [r.id for r in manifest.readouts]
+    problems += [f"never uses approved id {i!r}" for i in approved if i not in core_html]
+    return problems</pre>
+
+                <div class="code-caption">backend/src/simulation/styles.py — the injected token block</div>
+                <pre class="code">CORE_TOKENS = """&lt;style&gt;
+:root{
+  color-scheme: light;                 /* dark shell, light scene: the sim is the bright object */
+  --sim-surface:   #fcfcfb;            /* the scene itself */
+  --sim-surface-2: #f0efec;            /* plot backgrounds, inset panels */
+  --sim-grid:      #d9d8d4;            /* axes and gridlines — always recessive */
+  --sim-ink:       #0b0b0b;
+  --sim-ink-2:     #52514e;
+  /* Roles, not colours. The model picks by MEANING and never writes a hex. */
+  --sim-primary:   #2a78d6;            /* the object under study */
+  --sim-secondary: #eb6834;            /* what it is compared against */
+  --sim-tertiary:  #1baf7a;            /* a third tracked quantity */
+  --sim-inactive:  #b8b7b2;            /* excluded, unreached, context */
+  --sim-good:      #0ca30c;
+  --sim-warn:      #fab219;
+  --sim-critical:  #d03b3b;
+}
+&lt;/style&gt;"""</pre>
+                <p style="color: var(--ink-soft); font-size: 15px">
+                    The three series hues are the reference palette's first three slots, and they are the *validated*
+                    three — all-pairs CVD ΔE 9.2, normal-vision ΔE 24.0, both clear of the floors. The fourth slot would
+                    put yellow beside orange and fail. That is why the contract caps a core at
+                    <strong>three tracked quantities</strong>: past three, fold or facet. Aqua measures 2.74:1 on this
+                    surface, so the relief rule binds — <strong>every distinct element carries a visible text
+                    label</strong>, and colour never carries identity alone.
+                </p>
+
+                <div class="code-caption">backend/src/tasks/simulation.py</div>
+                <pre class="code">def _generate_core(*, plan: Plan, manifest: Manifest) -> tuple[CoreOutput, dict]:
+    """One attempt, then one retry — but the retry is told exactly what failed.
+
+    This is the difference between a grounded loop and self-critique: the model
+    never reviews its own code, it is handed a deterministic verdict on it.
+    """
+    user = sim_core_user_prompt(plan=plan, manifest=manifest)
+    core, raw = structured_completion(
+        system=SIM_CORE_CONTRACT, user=user, schema=CORE_SCHEMA,
+        schema_name="simulation_core", model_cls=CoreOutput,
+    )
+    problems = validate_core(core.core_html, manifest)
+    if not problems:
+        return core, raw
+
+    logger.warning("Core failed the gate, retrying once: %s", problems)
+    core, raw = structured_completion(
+        system=SIM_CORE_CONTRACT,
+        user=f"{user}\n\nThe previous attempt was rejected:\n"
+             + "\n".join(f"- {p}" for p in problems),
+        schema=CORE_SCHEMA, schema_name="simulation_core", model_cls=CoreOutput,
+    )
+    if remaining := validate_core(core.core_html, manifest):
+        raise LLMOutputError("; ".join(remaining), raw=core.core_html)
+    return core, raw</pre>
+            </section>
+
+            <!-- 6. FUTURE SCOPE -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">06</span>
+                    <h2>Future scope</h2>
+                </div>
+                <p>
+                    What this plan deliberately leaves alone, and the assumptions it makes that are worth
+                    contradicting during review.
+                </p>
+
+                <div class="future-item">
+                    <h3>The gate reads text; it does not run the simulation.</h3>
+                    <p>
+                        <code>validate_core</code> greps a string. It proves the core <em>mentions</em>
+                        <code>sim:ready</code>, not that it fires it; it cannot catch a sim that loads and then draws
+                        nothing. Actually executing the core needs a headless browser in the worker image — real
+                        weight for a POC. The teacher is the runtime check for now, which is consistent with the
+                        review-gate philosophy everywhere else in this pipeline. Worth revisiting if broken-but-valid
+                        cores turn out to be common rather than rare.
+                    </p>
+                    <div class="meta">Assumption · revisit after ~10 real generations</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Should the coherence check also run at acceptance?</h3>
+                    <p>
+                        As planned it runs in the generation task, so a model-authored blueprint is gated. But
+                        teachers hand-edit control ranges on the review screen, and
+                        <code>accept_with_modifications</code> writes that edit straight through — a human can
+                        introduce exactly the contradiction the check exists to catch. Running it on the decision
+                        endpoint too is cheap; the open question is whether it should <em>block</em> a teacher or
+                        merely warn them. Blocking a teacher from their own edit is a much harsher act than failing a
+                        model's output.
+                    </p>
+                    <div class="meta">Decide with · owner · before slice 1 lands</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Ambition is a prompt change, not an architecture change.</h3>
+                    <p>
+                        The reference screenshots draw their own panels, buttons and upload controls — which our split
+                        forbids. So &ldquo;match that quality&rdquo; means richer <em>scenes</em>: linked views,
+                        plotted history, annotated state. Every control still belongs to the shell. If a target sim
+                        genuinely needs an interaction the manifest cannot express, that is a signal about the
+                        parameter vocabulary, not a licence for the core to draw UI. Deliberately scheduled after a
+                        core renders, so ambition is tuned against something real.
+                    </p>
+                    <div class="meta">Slice 6 · reassess against the sample set</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>The reference samples are not one design system, and one of them is out of reach.</h3>
+                    <p>
+                        All six screenshots are Virtual Labs (MoE) products sharing an outer platform frame — hamburger,
+                        logo, star rating, Rate&nbsp;Me. Inside that frame they are <em>mutually inconsistent</em>:
+                        different palettes, fonts, button shapes and input styles per lab. So matching them is not a
+                        design-system problem; our shell/core split can be considerably more consistent than the
+                        reference is.
+                    </p>
+                    <p>
+                        The honest limit is <strong>assets</strong>. The IoT sample uses photographic component
+                        artwork — a Raspberry Pi board, a resistor, a phone. With <code>img-src data:</code> every asset
+                        must be inlined, and no model draws a recognisable Pi board in vector code. Matching that style
+                        needs a curated, domain-specific asset library, which is out of POC scope. The Blockchain,
+                        Linear Regression and Buffer Overflow styles — shapes, layout, text, canvas — are all reachable.
+                    </p>
+                    <p>
+                        Assumption worth contradicting: the scene is <strong>light</strong> inside a dark shell, on the
+                        basis that the only POC viewer is a teacher on a laptop reviewing their own work, and the
+                        simulation should read as the bright object on the page. If these are ever projected in a
+                        classroom, that assumption changes the palette rather than decorating it — projectors crush
+                        mid-tones, and the tokens would need higher contrast, larger minimum type and thicker strokes.
+                    </p>
+                    <div class="meta">Assumption · revisit if sims are ever projected, or if the asset pipeline is wanted</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>The transport bar may not survive as a flag at all.</h3>
+                    <p>
+                        The owner's position on first seeing it in the browser: the bar should show for
+                        <em>every</em> simulation, which would delete <code>time_stepped</code> from the schema, the
+                        prompt, the review screen and the manifest. That decision is deferred until real cores exist
+                        to judge it against — but it constrains this milestone in one way. Build nothing that assumes
+                        the flag is permanent: <code>validate_core</code> should read
+                        <code>manifest.time_stepped</code> once, and the workspace should never branch on it. If the
+                        flag becomes "always true", that must be a one-line change, not a refactor.
+                    </p>
+                    <div class="meta">Handoff §5 item 8 · revisit after ~5 generated cores</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>The four ready labs are a flawed test set — deliberately.</h3>
+                    <p>
+                        Every lab currently in <code>plan_accepted</code> has <code>time_stepped: false</code>,
+                        because migration <code>0004</code> backfilled it and a migration must not guess from prose.
+                        Two of them — <em>Binary Search: Halving the Hunt</em> and <em>What Sets a Pendulum's
+                        Period?</em> — plainly do step. Generating from them as-is produces correct cores with no
+                        transport bar, which will look like this milestone's plumbing is broken when it is not. Flip
+                        the checkbox before the first test generation, or draft one fresh blueprint and use that as
+                        the day-3 smoke test.
+                    </p>
+                    <div class="meta">Test-data note · before slice 3 is exercised</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Still no automated tests.</h3>
+                    <p>
+                        Milestones 0–2 shipped with none, and this plan does not fix that wholesale. But
+                        <code>check_coherence</code> and <code>validate_core</code> are pure functions over fixtures —
+                        the cheapest possible place to start a real suite, and the two functions where a silent
+                        regression is most expensive. Assumption: a small <code>backend/tests/</code> lands with
+                        slices 1 and 4 rather than as its own project.
+                    </p>
+                    <div class="meta">Assumption · flag if you want it split out</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Rollback and version history are milestone 4.</h3>
+                    <p>
+                        <code>simulations</code> gets <code>version</code>, <code>is_current</code> and
+                        <code>change_summary</code> now because the schema should not need a migration to gain them
+                        later. But nothing writes a second version in milestone 3, and no version rail is built. The
+                        workspace shows one simulation. <code>simulation_feedback</code> is not created at all.
+                    </p>
+                    <div class="meta">Scope line · milestone 4</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Polling still shows a two-minute wait.</h3>
+                    <p>
+                        Call #1 measured 31s and call #2 measured 91s, so accept-to-simulation is around two minutes
+                        of spinner at 1.5s polling. Open item 2 (SSE vs polling) is unresolved and this plan does not
+                        resolve it — but milestone 3 is where it starts to hurt, because it is the longest single wait
+                        in the product. A staged progress message costs nothing and buys most of the perceived
+                        improvement.
+                    </p>
+                    <div class="meta">Open item 2 · decide before demo</div>
+                </div>
+            </section>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,15 @@
+.env
+.env.local
+*.pyc
+__pycache__/
+.venv/
+.ruff_cache/
+.pytest_cache/
+node_modules/
+.next/
+.DS_Store
+
+# Reference screenshots of other teams' simulations — direction, not a benchmark.
+# Kept out of the repo: third-party UI we did not author and have no licence for.
+sim_screenshots_samples/
+sim_screenshots_samples.zip

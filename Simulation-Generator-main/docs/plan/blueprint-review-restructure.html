@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Blueprint review restructure — Implementation plan</title>
+        <style>
+            :root {
+                --bg: #f5f0e1;
+                --paper: #fbf8ec;
+                --paper-soft: #f1ead5;
+                --ink: #1a2e1f;
+                --ink-soft: #5a6b5a;
+                --accent: #b4541a;
+                --rule: #d8cfb4;
+                --dash: #b9b29a;
+                --tag-bg: #ece5d0;
+                --op-add: #2d5938;
+                --op-mod: #856104;
+                --op-del: #8a3320;
+            }
+            * { box-sizing: border-box; }
+            html, body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+                font-size: 17px;
+                line-height: 1.55;
+            }
+            .page { max-width: 820px; margin: 0 auto; padding: 40px 24px 96px; }
+
+            .eyebrow {
+                font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            h1 {
+                font-size: 40px; line-height: 1.15;
+                margin: 6px 0 20px; font-weight: 600; color: var(--ink);
+                letter-spacing: -0.01em;
+            }
+            h2 { font-size: 26px; margin: 0; font-weight: 600; letter-spacing: -0.005em; }
+            h3 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+            p { margin: 8px 0; }
+            code { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 0.92em; }
+
+            .prompt-box {
+                background: var(--paper-soft);
+                border: 1px solid var(--rule);
+                border-radius: 10px;
+                padding: 16px 18px;
+                margin: 20px 0 36px;
+            }
+            .prompt-box .plabel {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--accent);
+                margin-bottom: 6px;
+            }
+            .prompt-box p { margin: 0; color: var(--ink); font-size: 16px; }
+
+            .bubbles {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px; margin: 24px 0 56px;
+            }
+            .bubble {
+                background: #fff;
+                border: 1px solid var(--rule);
+                border-radius: 8px;
+                padding: 14px 16px;
+            }
+            .bubble .label {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; letter-spacing: 0.12em;
+                text-transform: uppercase; color: var(--ink-soft);
+            }
+            .bubble .value {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 18px; font-weight: 500;
+                margin-top: 4px; color: var(--ink);
+            }
+
+            section { margin: 56px 0; }
+            .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+            .section-num {
+                font-family: ui-monospace, Menlo, monospace;
+                color: var(--ink-soft);
+                font-size: 11px; letter-spacing: 0.08em;
+                background: var(--tag-bg);
+                border-radius: 4px; padding: 2px 7px;
+            }
+            section > p:first-of-type { color: var(--ink-soft); margin: 4px 0 24px; }
+
+            .timeline { margin-top: 8px; }
+            .milestone {
+                display: grid;
+                grid-template-columns: 130px 28px 1fr;
+                gap: 14px;
+                padding-bottom: 28px;
+                position: relative;
+            }
+            .milestone .when {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; letter-spacing: 0.04em;
+                color: var(--ink-soft); padding-top: 4px;
+                text-align: right;
+            }
+            .milestone .rail { position: relative; display: flex; justify-content: center; }
+            .milestone .rail::before {
+                content: ""; position: absolute;
+                top: 0; bottom: -28px; left: 50%;
+                width: 1px; background: var(--rule);
+                transform: translateX(-0.5px);
+            }
+            .milestone:last-child .rail::before { bottom: 0; }
+            .milestone .dot {
+                position: relative; z-index: 1;
+                width: 11px; height: 11px; border-radius: 50%;
+                margin-top: 8px;
+                background: var(--op-add);
+                border: 2px solid var(--op-add);
+            }
+            .milestone.upcoming .dot { background: var(--bg); border: 2px solid var(--accent); }
+            .milestone .body { padding-top: 2px; }
+            .tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+            .tag {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px;
+                background: var(--tag-bg);
+                border: 1px solid var(--rule);
+                padding: 2px 8px; border-radius: 4px;
+                color: var(--ink);
+            }
+
+            .flow {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 12px;
+                padding: 22px;
+                overflow-x: auto;
+            }
+            .flow svg { width: 100%; height: auto; display: block; min-width: 640px; }
+            .legend {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft);
+                margin-top: 12px;
+            }
+
+            .mock {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 12px;
+                padding: 20px; margin: 16px 0;
+            }
+            .mock h3 { margin-bottom: 12px; }
+
+            /* lo-fi blueprint screen */
+            .bp { border: 1px solid var(--rule); border-radius: 8px; background: #fff; overflow: hidden; }
+            .bp-head { padding: 12px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-soft); }
+            .bp-head .crumb {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft);
+            }
+            .bp-head .t { font-size: 19px; font-weight: 600; margin-top: 4px; }
+            .bp-row {
+                display: grid; grid-template-columns: 34px 1fr;
+                gap: 12px; padding: 11px 14px;
+                border-bottom: 1px dashed var(--dash);
+            }
+            .bp-row:last-child { border-bottom: 0; }
+            .bp-n {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; color: var(--accent); padding-top: 3px;
+            }
+            .bp-t { font-weight: 600; font-size: 15px; }
+            .bp-d { color: var(--ink-soft); font-size: 13px; }
+            .bp-lines { margin-top: 6px; }
+            .bp-lines i { display: block; height: 5px; border-radius: 3px; background: var(--tag-bg); margin-bottom: 5px; }
+            .bp-block {
+                margin: 12px 14px; padding: 12px 14px;
+                border: 1px dashed var(--accent); border-radius: 8px; background: var(--paper-soft);
+            }
+            .bp-btn {
+                display: inline-block; margin-top: 8px;
+                font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                border: 1px solid var(--ink-soft); border-radius: 5px;
+                padding: 4px 10px; color: var(--ink);
+            }
+            .bp-foot { padding: 12px 14px; border-top: 1px solid var(--rule); background: var(--paper-soft); }
+            .bp-cta {
+                display: inline-block; font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+                border: 1px solid var(--op-add); color: var(--op-add);
+                border-radius: 5px; padding: 4px 10px; margin-right: 6px;
+            }
+            .cut { color: var(--op-del); text-decoration: line-through; }
+
+            table.ord { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+            table.ord th, table.ord td { text-align: left; padding: 8px 10px; border-bottom: 1px dashed var(--dash); }
+            table.ord th {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft);
+            }
+            table.ord td.num { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--ink-soft); width: 46px; }
+
+            .files { display: grid; grid-template-columns: 1fr; gap: 0; }
+            .file-row {
+                display: grid; grid-template-columns: 80px 1fr;
+                gap: 12px; align-items: baseline;
+                border-bottom: 1px dashed var(--dash);
+                padding: 10px 0;
+            }
+            .file-op {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+            }
+            .op-add { color: var(--op-add); }
+            .op-mod { color: var(--op-mod); }
+            .op-del { color: var(--op-del); }
+            .file-path { font-family: ui-monospace, Menlo, monospace; font-size: 14px; color: var(--ink); }
+            .file-note { color: var(--ink-soft); font-size: 14px; margin-top: 3px; display: block; }
+
+            pre.code {
+                background: var(--paper);
+                border: 1px solid var(--rule);
+                border-radius: 8px;
+                padding: 14px 16px; overflow-x: auto;
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 13px; line-height: 1.55;
+                color: var(--ink);
+            }
+            .code-caption {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 12px; color: var(--ink-soft);
+                margin: 18px 0 6px;
+            }
+            .kw { color: var(--accent); }
+            .fn { color: #2d5938; }
+            .str { color: #856104; }
+
+            .future-item { border-top: 1px solid var(--rule); padding: 16px 0; }
+            .future-item:last-child { border-bottom: 1px solid var(--rule); }
+            .future-item .meta {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 11px; letter-spacing: 0.04em;
+                color: var(--ink-soft); margin-top: 6px;
+            }
+
+            .ste { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; }
+            .ste ol { margin: 8px 0 0; padding-left: 22px; }
+            .ste li { margin-bottom: 4px; }
+
+            @media (max-width: 640px) {
+                .milestone { grid-template-columns: 90px 22px 1fr; gap: 10px; }
+                h1 { font-size: 32px; }
+                h2 { font-size: 22px; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="page">
+            <div class="eyebrow">Implementation plan · simgen POC</div>
+            <h1>Blueprint review restructure</h1>
+
+            <div class="prompt-box">
+                <div class="plabel">Prompt</div>
+                <p>
+                    The binary-search blueprint is detailed, but would a teacher want to read all of it?
+                    Some of it is really instructions for the thing that builds the simulation. We still
+                    need to give the visual components, otherwise the LLM will generate whatever it wants —
+                    so the structuring of the sections is the key. Rename "misconception" to
+                    <em>Where students go wrong</em>. The plan prompt needs to change too, so it authors in
+                    that same structure. And I need a graduate level in the audience group.
+                </p>
+            </div>
+
+            <div class="bubbles">
+                <div class="bubble">
+                    <div class="label">Effort</div>
+                    <div class="value">~1 day</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Files updated</div>
+                    <div class="value">4</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Files added</div>
+                    <div class="value">0</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Migrations</div>
+                    <div class="value">none</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Schema fields</div>
+                    <div class="value">unchanged</div>
+                </div>
+                <div class="bubble">
+                    <div class="label">Blocks milestone</div>
+                    <div class="value">3 — sim gen</div>
+                </div>
+            </div>
+
+            <!-- STE SUMMARY -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">01</span>
+                    <h2>Brief summary</h2>
+                </div>
+                <p>Written in ASD-STE100 Simplified Technical English. Short sentences, active voice, one idea per sentence.</p>
+
+                <div class="ste">
+                    <p>
+                        The blueprint page shows all sections with the same weight. This is wrong. Some sections
+                        are for the teacher. Other sections describe the simulation build. The teacher cannot
+                        check the build sections. These sections fill most of the page.
+                    </p>
+                    <p>
+                        This plan keeps every section. The plan changes the order of the sections. The plan also
+                        puts two sections into one closed block.
+                    </p>
+                    <p>
+                        The plan then makes the model write the blueprint in the same order. The plan also adds two
+                        higher audience levels.
+                    </p>
+                    <p>The work has five parts:</p>
+                    <ol>
+                        <li>Change the label <code>Key misconception or difficulty</code> to <code>Where students go wrong</code>.</li>
+                        <li>Move <code>What students should notice</code> up. Put it after <code>What it teaches</code>.</li>
+                        <li>Put <code>What appears on screen</code> and <code>How it should behave</code> into one closed block.</li>
+                        <li>Make LLM call #1 write the fields in the new order. Also make the model match the depth to the audience.</li>
+                        <li>Add <code>Undergraduate</code> and <code>Graduate</code> to the audience list.</li>
+                    </ol>
+                    <p>
+                        The blueprint keeps all of its fields. LLM call #2 receives the same content. A migration is
+                        not necessary. The <code>audience</code> column is already free text.
+                    </p>
+                </div>
+            </section>
+
+            <!-- MILESTONES -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">02</span>
+                    <h2>Milestones</h2>
+                </div>
+                <p>Five slices. Each one is independently reviewable, and slices 1–3 are visible on screen without a new generation.</p>
+
+                <div class="timeline">
+                    <div class="milestone">
+                        <div class="when">Slice 1</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Rename and reorder</h3>
+                            <p>
+                                <code>Key misconception or difficulty</code> becomes <code>Where students go wrong</code> in both
+                                the read block and the edit form. <code>What students should notice</code> moves from 07 to 02,
+                                and the remaining sections renumber. Display only — no field renaming, no request shape change.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">web/components/PlanEditor.tsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 2</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Two-tier disclosure</h3>
+                            <p>
+                                A <code>CollapsibleSection</code> sibling of <code>Section</code> holds the visual elements and
+                                the behaviour rules under one teacher-facing heading — <em>“What the simulation will show and
+                                do”</em>. Closed by default, with a live count on the toggle. Both inner Edit buttons keep
+                                working, and the block force-opens when either becomes the active edit target.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">web/components/PlanEditor.tsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 3</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Audience levels</h3>
+                            <p>
+                                <code>AUDIENCES</code> gains <code>Undergraduate</code> and <code>Graduate</code> after
+                                <code>Grade 12</code>. Both fit the existing <code>CharField(max_length=64)</code>, so no
+                                migration and no backend edit.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">web/app/courses/[id]/labs/new/page.tsx</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 4</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Authoring order + audience calibration</h3>
+                            <p>
+                                <code>PLAN_SCHEMA</code>’s property order moves <code>expected_observations</code> ahead of
+                                <code>visual_elements</code> and <code>behavior_rules</code>, so the model designs the visuals to
+                                serve the observations rather than the reverse. <code>PLAN_SYSTEM_PROMPT</code>’s headings follow
+                                the same order and gain an audience-depth rule. Field names do not change.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">backend/src/llm/schemas.py</span>
+                                <span class="tag">backend/src/llm/prompts.py</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone upcoming">
+                        <div class="when">Slice 5</div>
+                        <div class="rail"><div class="dot"></div></div>
+                        <div class="body">
+                            <h3>Verify against the live model</h3>
+                            <p>
+                                <code>npm run lint</code>, <code>tsc --noEmit</code>, <code>npm run build</code>, plus Ruff.
+                                Then <code>scripts/try_plan.py</code> twice on the same prose — once at
+                                <code>Grade 9</code>, once at <code>Graduate</code> — to confirm the depth actually shifts and
+                                the strict-schema call still validates.
+                            </p>
+                            <div class="tags">
+                                <span class="tag">backend/scripts/try_plan.py</span>
+                                <span class="tag">web</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DATA FLOW -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">03</span>
+                    <h2>Data flow</h2>
+                </div>
+                <p>The same path as today. Four modules on it change; nothing new joins it. Solid = request/response, dashed = queued.</p>
+
+                <div class="flow">
+                    <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" aria-label="Blueprint authoring data flow">
+                        <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                                <path d="M0,0 L10,5 L0,10 z" fill="#1a2e1f" />
+                            </marker>
+                        </defs>
+
+                        <rect class="node-new" x="20" y="30" width="180" height="58" />
+                        <text class="node-label" x="110" y="55" text-anchor="middle">labs/new/page.tsx</text>
+                        <text class="node-sub" x="110" y="72" text-anchor="middle">web · audience list</text>
+
+                        <rect class="node" x="280" y="30" width="180" height="58" />
+                        <text class="node-label" x="370" y="55" text-anchor="middle">lab router</text>
+                        <text class="node-sub" x="370" y="72" text-anchor="middle">backend/src/lab</text>
+
+                        <rect class="node" x="540" y="30" width="160" height="58" />
+                        <text class="node-label" x="620" y="55" text-anchor="middle">generate_plan</text>
+                        <text class="node-sub" x="620" y="72" text-anchor="middle">src/tasks/plan.py</text>
+
+                        <rect class="node-new" x="540" y="150" width="160" height="58" />
+                        <text class="node-label" x="620" y="175" text-anchor="middle">prompts.py</text>
+                        <text class="node-sub" x="620" y="192" text-anchor="middle">system + user</text>
+
+                        <rect class="node-new" x="280" y="150" width="180" height="58" />
+                        <text class="node-label" x="370" y="175" text-anchor="middle">schemas.py</text>
+                        <text class="node-sub" x="370" y="192" text-anchor="middle">PLAN_SCHEMA order</text>
+
+                        <rect class="node" x="20" y="150" width="180" height="58" />
+                        <text class="node-label" x="110" y="175" text-anchor="middle">gpt-5.5</text>
+                        <text class="node-sub" x="110" y="192" text-anchor="middle">strict outputs</text>
+
+                        <rect class="node" x="20" y="270" width="180" height="58" />
+                        <text class="node-label" x="110" y="295" text-anchor="middle">plan_versions</text>
+                        <text class="node-sub" x="110" y="312" text-anchor="middle">postgres</text>
+
+                        <rect class="node-new" x="280" y="270" width="420" height="58" />
+                        <text class="node-label" x="490" y="295" text-anchor="middle">PlanEditor.tsx</text>
+                        <text class="node-sub" x="490" y="312" text-anchor="middle">web · two-tier review, reordered sections</text>
+
+                        <path class="stroke-solid" d="M200 59 L280 59" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="240" y="51" text-anchor="middle">audience</text>
+
+                        <path class="stroke-dash" d="M460 59 L540 59" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="500" y="51" text-anchor="middle">dispatch</text>
+
+                        <path class="stroke-solid" d="M620 88 L620 150" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="628" y="122">build</text>
+
+                        <path class="stroke-solid" d="M540 179 L460 179" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="500" y="171" text-anchor="middle">order</text>
+
+                        <path class="stroke-solid" d="M280 179 L200 179" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="240" y="171" text-anchor="middle">schema</text>
+
+                        <path class="stroke-solid" d="M110 208 L110 270" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="118" y="242">validated</text>
+
+                        <path class="stroke-solid" d="M200 299 L280 299" marker-end="url(#arrow)" />
+                        <text class="edge-label" x="240" y="291" text-anchor="middle">no-store</text>
+                    </svg>
+                </div>
+                <div class="legend">
+                    Solid = request/response. Dashed = async / queued. Terracotta border = module changed by this plan.
+                    No module is added, and <code>manifest_from_plan</code> is untouched.
+                </div>
+            </section>
+
+            <!-- MOCKUPS -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">04</span>
+                    <h2>Mockups</h2>
+                </div>
+                <p>What the teacher sees: a short decision surface, with the build detail one click away rather than gone.</p>
+
+                <div class="mock">
+                    <h3>A · Default view — closed block</h3>
+                    <div class="bp">
+                        <div class="bp-head">
+                            <div class="crumb">Understood as · Computer Science / Binary search</div>
+                            <div class="t">Binary Search: Halving the Hunt</div>
+                        </div>
+
+                        <div class="bp-row">
+                            <div class="bp-n">01</div>
+                            <div>
+                                <div class="bp-t">What it teaches</div>
+                                <div class="bp-d">Learning objective · <strong>Where students go wrong</strong></div>
+                                <div class="bp-lines"><i style="width:96%"></i><i style="width:74%"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="bp-row">
+                            <div class="bp-n">02</div>
+                            <div>
+                                <div class="bp-t">What students should notice</div>
+                                <div class="bp-d">Moved up — this is the acceptance test for the finished simulation.</div>
+                                <div class="bp-lines"><i style="width:92%"></i><i style="width:88%"></i><i style="width:60%"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="bp-row">
+                            <div class="bp-n">03</div>
+                            <div>
+                                <div class="bp-t">How it works</div>
+                                <div class="bp-d">Experience · opening view · student actions · end state</div>
+                                <div class="bp-lines"><i style="width:94%"></i><i style="width:70%"></i></div>
+                                <div class="bp-d" style="margin-top:8px; font-style:italic">
+                                    12 visual elements and 11 behaviour rules are specified below.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bp-row">
+                            <div class="bp-n">04</div>
+                            <div>
+                                <div class="bp-t">What students can change</div>
+                                <div class="bp-d">4 control cards, unchanged</div>
+                                <div class="bp-lines"><i style="width:80%"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="bp-row">
+                            <div class="bp-n">05</div>
+                            <div>
+                                <div class="bp-t">Values displayed</div>
+                                <div class="bp-d">4 readouts, unchanged</div>
+                                <div class="bp-lines"><i style="width:76%"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="bp-block">
+                            <div class="bp-t">What the simulation will show and do</div>
+                            <div class="bp-d">The visuals and rules the simulation is built from. Open this to check or change them.</div>
+                            <span class="bp-btn">Show details — 12 visuals · 11 rules</span>
+                        </div>
+
+                        <div class="bp-foot">
+                            <span class="bp-cta">Accept blueprint</span>
+                            <span class="bp-cta" style="border-color:var(--ink-soft); color:var(--ink-soft)">Reject</span>
+                        </div>
+                    </div>
+                    <p class="bp-d" style="margin-top:12px">
+                        Roughly 1.5 screens instead of seven. Every section is still present and still editable.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>B · Block open</h3>
+                    <div class="bp">
+                        <div class="bp-block" style="margin:14px">
+                            <div class="bp-t">What the simulation will show and do</div>
+                            <span class="bp-btn">Hide details</span>
+                            <div style="margin-top:14px; border-top:1px dashed var(--dash); padding-top:12px">
+                                <div class="bp-t" style="font-size:14px">What appears on screen <span class="bp-d">· Edit</span></div>
+                                <div class="bp-lines"><i style="width:90%"></i><i style="width:96%"></i><i style="width:64%"></i></div>
+                            </div>
+                            <div style="margin-top:12px; border-top:1px dashed var(--dash); padding-top:12px">
+                                <div class="bp-t" style="font-size:14px">How it should behave <span class="bp-d">· Edit</span></div>
+                                <div class="bp-lines"><i style="width:94%"></i><i style="width:86%"></i><i style="width:92%"></i><i style="width:58%"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="bp-d" style="margin-top:12px">
+                        Each group keeps its own Edit button. Pressing Edit inside the block, then closing the block,
+                        cancels that edit rather than leaving a hidden live form.
+                    </p>
+                </div>
+
+                <div class="mock">
+                    <h3>C · Section order — before and after</h3>
+                    <table class="ord">
+                        <tr><th>Now</th><th>Section</th><th>After</th></tr>
+                        <tr><td class="num">01</td><td>What it teaches</td><td class="num">01</td></tr>
+                        <tr><td class="num">02</td><td>How it works</td><td class="num">03</td></tr>
+                        <tr><td class="num">03</td><td>What students can change</td><td class="num">04</td></tr>
+                        <tr><td class="num">04</td><td>What appears on screen</td><td class="num">in block</td></tr>
+                        <tr><td class="num">05</td><td>Values displayed</td><td class="num">05</td></tr>
+                        <tr><td class="num">06</td><td>How it should behave</td><td class="num">in block</td></tr>
+                        <tr><td class="num">07</td><td>What students should notice</td><td class="num">02</td></tr>
+                    </table>
+                    <p class="bp-d" style="margin-top:12px">
+                        <strong>Review order is not authoring order.</strong> On screen, observations sit at 02 so the teacher
+                        reads the objective and its test together. In the schema they stay <em>after</em> controls and readouts,
+                        so the model can only write observations that reference controls it has already committed to.
+                    </p>
+                </div>
+            </section>
+
+            <!-- FILES -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">05</span>
+                    <h2>Files</h2>
+                </div>
+                <p>Four files updated, none added, none removed. No migration.</p>
+
+                <div class="files">
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">web/components/PlanEditor.tsx</span>
+                            <span class="file-note">
+                                Label rename at lines 457 and 462; section reorder and renumber; new
+                                <code>CollapsibleSection</code> component beside <code>Section</code> (line 22); edit-state
+                                reconciliation so a collapsed block cannot hide an active form.
+                            </span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/llm/schemas.py</span>
+                            <span class="file-note">
+                                Reorder <code>PLAN_SCHEMA["properties"]</code> so <code>expected_observations</code> precedes
+                                <code>visual_elements</code> and <code>behavior_rules</code>. Mirror the order in the
+                                <code>Plan</code> model. No field added, renamed, or removed —
+                                <code>_parameter_schema</code> and <code>MANIFEST_SCHEMA</code> untouched.
+                            </span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">backend/src/llm/prompts.py</span>
+                            <span class="file-note">
+                                Reorder <code>PLAN_SYSTEM_PROMPT</code>’s headings to match; reword the
+                                <code>misconception</code> guidance in “where students go wrong” terms; add an audience-depth
+                                rule; state that observations are written before visuals so visuals serve them.
+                                <code>SIM_CORE_CONTRACT</code> untouched.
+                            </span>
+                        </span>
+                    </div>
+                    <div class="file-row">
+                        <span class="file-op op-mod">update</span>
+                        <span>
+                            <span class="file-path">web/app/courses/[id]/labs/new/page.tsx</span>
+                            <span class="file-note">
+                                <code>AUDIENCES</code> gains <code>Undergraduate</code> and <code>Graduate</code>. Default stays
+                                <code>Grade 9</code>.
+                            </span>
+                        </span>
+                    </div>
+                </div>
+                <p style="margin-top:20px">
+                    <strong>Deliberately not touched:</strong> <code>lib/types.ts</code> (<code>misconception</code> stays the
+                    field name), <code>manifest_from_plan</code>, the <code>labs</code> migration, and the plan-decision
+                    endpoints. <code>accept</code> / <code>accept_with_modifications</code> behaviour is unchanged.
+                </p>
+            </section>
+
+            <!-- KEY CODE -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">06</span>
+                    <h2>Key code</h2>
+                </div>
+                <p>Three places where a wrong guess would cost a debugging session.</p>
+
+                <div class="code-caption">web/components/PlanEditor.tsx — collapse must own the edit state</div>
+                <pre class="code"><span class="kw">const</span> BLOCK_SECTIONS: SectionId[] = [<span class="str">'visuals'</span>, <span class="str">'behavior'</span>];
+
+<span class="kw">const</span> [detailsOpen, setDetailsOpen] = useState(<span class="kw">false</span>);
+
+<span class="fn">// Edit inside the block force-opens it, so no form is ever mounted invisibly.</span>
+<span class="kw">const</span> startEdit = (section: SectionId) => {
+  <span class="kw">if</span> (BLOCK_SECTIONS.includes(section)) setDetailsOpen(<span class="kw">true</span>);
+  setEditing(activeEditing === section ? <span class="kw">null</span> : section);
+};
+
+<span class="fn">// Closing the block cancels an edit it would otherwise swallow.</span>
+<span class="kw">const</span> toggleDetails = () => {
+  setDetailsOpen((open) => {
+    <span class="kw">if</span> (open && activeEditing && BLOCK_SECTIONS.includes(activeEditing)) setEditing(<span class="kw">null</span>);
+    <span class="kw">return</span> !open;
+  });
+};</pre>
+
+                <div class="code-caption">backend/src/llm/prompts.py — audience depth, added to PLAN_SYSTEM_PROMPT</div>
+                <pre class="code">## Match the depth to the audience
+The audience string names the level. Calibrate to it and never above it.
+- School grades: one relationship at a time, whole numbers where possible,
+  everyday language, no formal notation.
+- Undergraduate: named quantities, standard units, and a stated relationship
+  are expected. Two interacting factors are acceptable.
+- Graduate: assume the standard result is already known. The simulation must
+  probe a limiting case, a failure mode, a boundary condition, or a competing
+  regime rather than restate the definition. `misconception` should name a
+  subtle or expert-level error, not a beginner one.
+
+Depth changes the concept and the ranges. It never changes the number of
+controls, and it never adds lesson material.</pre>
+
+                <div class="code-caption">backend/src/llm/prompts.py — the reworded purpose section</div>
+                <pre class="code">## Define the purpose
+`learning_objective` is the single most important understanding the simulation
+must create. `misconception` is shown to the teacher as **“Where students go
+wrong.”** Write it as one plain sentence describing what students believe or
+where they get stuck — a wrong idea, a confusion, or a step they cannot
+picture. Do not use the word “misconception” in the text itself, and do not
+address the teacher.</pre>
+                <p style="margin-top:14px">
+                    The last snippet is the one that matters most: the field keeps the name <code>misconception</code>, but the
+                    prompt must stop assuming a physics-style false belief exists. The binary-search output
+                    (<em>“students think binary search is just a faster way to search any list”</em>) is an incomplete idea,
+                    not a misconception — the current wording is narrower than the content the model actually produces.
+                </p>
+            </section>
+
+            <!-- FUTURE SCOPE -->
+            <section>
+                <div class="section-head">
+                    <span class="section-num">07</span>
+                    <h2>Future scope</h2>
+                </div>
+                <p>Assumptions made without asking, and work deliberately left out of this slice.</p>
+
+                <div class="future-item">
+                    <h3>Assumption: <code>Undergraduate</code> was added alongside <code>Graduate</code></h3>
+                    <p>
+                        You asked for a graduate level. Jumping from <code>Grade 12</code> straight to
+                        <code>Graduate</code> leaves an odd gap, and the prompt calibration reads better with a rung between
+                        them. Both are one line to remove if you only want <code>Graduate</code>.
+                    </p>
+                    <div class="meta">Correct during plan review</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Should the audience field be free text instead of a select?</h3>
+                    <p>
+                        <code>audience</code> is already <code>CharField(max_length=64)</code>, so a teacher could type
+                        “Graduate seminar in numerical methods” and the prompt would use it. A select keeps the demo
+                        predictable and keeps the calibration rules matched to known strings. Free text is a better fit
+                        for real users, and costs nothing structurally.
+                    </p>
+                    <div class="meta">Decide with · owner · before v1</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Does the closed block stay closed on a re-review?</h3>
+                    <p>
+                        Assumed yes — always closed on mount, no persistence. A teacher rejecting and regenerating twice
+                        may want it to remember. That needs client state we do not have a home for yet, and it is not worth
+                        adding before someone asks.
+                    </p>
+                    <div class="meta">Revisit after the first real teacher session</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>The two generation defects stay open</h3>
+                    <p>
+                        Still unfixed, and both change generated output rather than presentation:
+                        <code>Number of items</code> ships as <code>0–100 step 1 default 50</code> while the blueprint’s own
+                        rules demand powers of two (8–128) and an opening state of 16; and Step / Run / Pause / Reset appear
+                        in <code>student_actions</code> but have nowhere to live, because <code>_parameter_schema</code> allows
+                        only <code>slider | toggle | dropdown | number</code>. Both belong before milestone 3, not inside a
+                        UI restructure.
+                    </p>
+                    <div class="meta">Next session · before simulation generation</div>
+                </div>
+
+                <div class="future-item">
+                    <h3>Blueprint “Request changes” is still queued</h3>
+                    <p>
+                        Handoff §6 item 6 — a feedback box that revises the current blueprint instead of sending the teacher
+                        back to rewrite the original prose. Untouched here. Note that it lands in the same component, so doing
+                        it after this restructure avoids reworking the same JSX twice.
+                    </p>
+                    <div class="meta">Sequence after this plan</div>
+                </div>
+            </section>
+        </div>
+    </body>
+</html>
