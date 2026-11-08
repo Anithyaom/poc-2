@@ -73,6 +73,8 @@ docker compose logs -f             # follow its logs
 cd web && npm run dev              # frontend
 cd backend && uv run pytest        # tests
 cd backend && uv run ruff check .  # lint
+data/fetch_ncert_pdfs.sh           # download Ganita Prakash Grade 8 PDFs into data/pdfs/
+cd backend && PYTHONPATH=. uv run python scripts/extract_textbook.py  # -> data/textbook/*.json
 ```
 
 Migrations apply automatically when the stack boots. If you change a model, generate the

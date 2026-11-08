@@ -14,5 +14,7 @@ node_modules/
 sim_screenshots_samples/
 sim_screenshots_samples.zip
 
-# NCERT textbook PDFs — NCERT copyright, ~85 MB. Fetch locally with data/fetch_ncert_pdfs.sh.
+# NCERT textbook PDFs (~85 MB) and the text extracted from them — NCERT copyright.
+# Recreate with data/fetch_ncert_pdfs.sh, then backend/scripts/extract_textbook.py.
 data/pdfs/
+data/textbook/

@@ -18,6 +18,8 @@ dependencies = [
 dev = [
     "ruff>=0.9.0",
     "pytest>=8.3.0",
+    "pypdf>=7.0.0",
+    "fonttools>=4.68.0",
 ]
 
 # The suite covers pure functions only — no database, no network, no Celery. Those
