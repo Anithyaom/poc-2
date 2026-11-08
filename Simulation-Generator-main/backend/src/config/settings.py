@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # Extracted textbook JSON (scripts/extract_textbook.py). Compose mounts data/textbook/
     # read-only at /app/data/textbook; the default suits host-run commands from backend/.
     textbook_dir: str = "../data/textbook"
+    # Cap on the textbook excerpt sent to plan generation. The plan model is a small
+    # local one; its context also holds the ~820-word system prompt, the schema, its
+    # own thinking, and the blueprint it writes. Raise only with a larger Ollama
+    # context (OLLAMA_CONTEXT_LENGTH on the Ollama server).
+    textbook_excerpt_max_words: int = 900
 
     # App
     app_port: int = 8000

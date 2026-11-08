@@ -8,14 +8,21 @@ text kept, never a crash.
 import logging
 import uuid
 
+from src.config.settings import settings
 from src.job.models import GenerationJob, JobStatus
 from src.lab.models import Lab, LabStatus
 from src.llm.client import LLMOutputError, structured_completion
 from src.llm.coherence import check_coherence
-from src.llm.prompts import PLAN_SYSTEM_PROMPT, plan_revision_user_prompt, plan_user_prompt
+from src.llm.prompts import (
+    PLAN_SYSTEM_PROMPT,
+    plan_revision_user_prompt,
+    plan_user_prompt,
+    textbook_source_block,
+)
 from src.llm.schemas import PLAN_SCHEMA, Plan
 from src.plan.models import PlanDecision, PlanVersion
 from src.tasks.base import run_async
+from src.textbook.library import resolve_ref
 from src.worker import app
 
 logger = logging.getLogger(__name__)
@@ -68,13 +75,44 @@ def _bullets(problems: list[str]) -> str:
     return "\n".join(f"- {problem}" for problem in problems)
 
 
-def _generate(*, description: str, audience: str, course_title: str, course_subject: str):
+class SourceUnavailable(Exception):
+    """The lab names a textbook section the worker cannot read."""
+
+
+def _source_block(lab: Lab) -> str | None:
+    """The textbook block for a grounded lab, or None for an ungrounded one.
+
+    A lab whose section cannot be loaded fails the job rather than drafting without
+    it: the teacher asked for a grounded blueprint, and a silently ungrounded one
+    would look like it was.
+    """
+    if not lab.source_ref:
+        return None
+    section = resolve_ref(lab.source_ref)
+    if section is None:
+        raise SourceUnavailable(
+            "The textbook section this lab is based on could not be loaded, so no "
+            "blueprint was drafted. The extracted textbook must be present in "
+            "data/textbook/ (see the README)."
+        )
+    return textbook_source_block(section, max_words=settings.textbook_excerpt_max_words)
+
+
+def _generate(
+    *,
+    description: str,
+    audience: str,
+    course_title: str,
+    course_subject: str,
+    source: str | None,
+):
     return _with_retry(
         user=plan_user_prompt(
             description=description,
             audience=audience,
             course_title=course_title,
             course_subject=course_subject,
+            source=source,
         ),
         retry_note=(
             "Return a simulation blueprint that matches the schema exactly. Every control "
@@ -83,7 +121,15 @@ def _generate(*, description: str, audience: str, course_title: str, course_subj
     )
 
 
-def _revise(*, plan: dict, feedback: str, audience: str, course_title: str, course_subject: str):
+def _revise(
+    *,
+    plan: dict,
+    feedback: str,
+    audience: str,
+    course_title: str,
+    course_subject: str,
+    source: str | None,
+):
     return _with_retry(
         user=plan_revision_user_prompt(
             plan=plan,
@@ -91,6 +137,7 @@ def _revise(*, plan: dict, feedback: str, audience: str, course_title: str, cour
             audience=audience,
             course_title=course_title,
             course_subject=course_subject,
+            source=source,
         ),
         retry_note=(
             "Return the complete revised blueprint matching the schema exactly. Every "
@@ -116,8 +163,9 @@ async def _run_revision(job_id: str, feedback: str) -> str:
             audience=lab.audience,
             course_title=course.title,
             course_subject=course.subject,
+            source=_source_block(lab),
         )
-    except LLMOutputError as exc:
+    except (LLMOutputError, SourceUnavailable) as exc:
         job.status = JobStatus.FAILED
         job.error = str(exc)[:4000]
         await job.save()
@@ -167,8 +215,9 @@ async def _run(job_id: str) -> str:
             audience=lab.audience,
             course_title=course.title,
             course_subject=course.subject,
+            source=_source_block(lab),
         )
-    except LLMOutputError as exc:
+    except (LLMOutputError, SourceUnavailable) as exc:
         job.status = JobStatus.FAILED
         job.error = str(exc)[:4000]
         await job.save()

@@ -158,6 +158,7 @@ services:
       LOCAL_DEV: ${LOCAL_DEV}
       CELERY_WORKER_MAX_MEMORY_PER_CHILD: ${CELERY_WORKER_MAX_MEMORY_PER_CHILD}
       TEXTBOOK_DIR: /app/data/textbook
+      TEXTBOOK_EXCERPT_MAX_WORDS: ${TEXTBOOK_EXCERPT_MAX_WORDS:-900}
     volumes:
       - ./data/textbook:/app/data/textbook:ro
     restart: always

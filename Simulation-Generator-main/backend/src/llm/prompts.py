@@ -5,6 +5,9 @@ Change them together or generated controls will silently stop working.
 """
 
 import json
+import re
+
+from src.textbook.library import SourceSection
 
 PLAN_SYSTEM_PROMPT = """\
 You help a teacher turn a rough request into a precise blueprint for ONE interactive \
@@ -105,16 +108,104 @@ IDs are internal plumbing, so labels and prose must remain natural and teacher-f
 """
 
 
+_CAPITALISED_WORD = re.compile(r"^[A-Z][a-z]+[.,?!:]?$")
+
+
+def strip_diagram_labels(text: str) -> str:
+    """Drop lines that are only diagram labels ("a", "b – a", "90 – x", "+ →").
+
+    PDF extraction turns every label in a figure into its own line. They carry no
+    meaning without the figure and would spend the excerpt's word budget. A line goes
+    only if it is at most four tokens, none longer than three characters, and none a
+    capitalised word, so short prose ("Why?", "Area A", a lone "If" that extraction
+    split off its sentence) and formulas ("a2 + b2 = c2.") stay.
+    """
+    kept = []
+    for line in text.splitlines():
+        tokens = line.split()
+        if (
+            tokens
+            and len(tokens) <= 4
+            and all(len(t) <= 3 for t in tokens)
+            and not any(_CAPITALISED_WORD.match(t) for t in tokens)
+        ):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def truncate_words(text: str, max_words: int) -> tuple[str, bool]:
+    """The first `max_words` words of `text`, cut at a line break where possible.
+
+    The head is kept, not a sample: a section introduces its idea first and builds on
+    it, so the opening is what grounds a blueprint. Returns (text, was_truncated).
+    """
+    words = text.split()
+    if len(words) <= max_words:
+        return text.strip(), False
+    kept, count = [], 0
+    for line in text.strip().splitlines():
+        n = len(line.split())
+        if count + n > max_words:
+            break
+        kept.append(line)
+        count += n
+    if count < max_words // 2:  # pathological long line: cut mid-line instead
+        return " ".join(words[:max_words]), True
+    return "\n".join(kept), True
+
+
+def textbook_source_block(section: SourceSection, *, max_words: int) -> str:
+    """The grounding instructions plus the section text, for call #1.
+
+    Lives in the user prompt, not PLAN_SYSTEM_PROMPT, so labs without a source get
+    exactly the prompt they always did.
+    """
+    excerpt, truncated = truncate_words(strip_diagram_labels(section.text), max_words)
+    note = "\n[The section continues; only its opening is included here.]" if truncated else ""
+    return (
+        "## Textbook source\n"
+        "The teacher based this simulation on a section of the class textbook: "
+        f"{section.book}, Grade {section.grade}, Part {section.part}, Chapter "
+        f'{section.chapter} "{section.chapter_title}", section {section.number} '
+        f'"{section.title}" (pp. {section.page_start}–{section.page_end}).\n\n'
+        "Ground the blueprint in it:\n"
+        "- The teacher's description decides what the simulation is; the section decides "
+        "how it is framed.\n"
+        "- Teach the idea the way this section teaches it and at its depth. Do not rely on "
+        "results or notation the section does not use.\n"
+        "- Where they fit a simulation, use the section's own examples, contexts, numbers, "
+        "names and vocabulary — in the title, the opening view, control ranges and "
+        "defaults, and the expected observations.\n"
+        "- Everything above still applies: this is one simulation, not a lesson. Do not "
+        "turn the section's exercises or text into readings or activities.\n\n"
+        "The excerpt was extracted from a PDF. Fractions and powers lost their layout "
+        '("3 4" may mean 3/4, "673" may mean 67 cubed), and stray numbers or words '
+        "may be labels from diagrams. Read it for meaning, and never copy such artifacts "
+        "into the blueprint.\n\n"
+        f"<textbook_excerpt>\n{excerpt}{note}\n</textbook_excerpt>"
+    )
+
+
 def plan_user_prompt(
-    *, description: str, audience: str, course_title: str, course_subject: str
+    *,
+    description: str,
+    audience: str,
+    course_title: str,
+    course_subject: str,
+    source: str | None = None,
 ) -> str:
-    """Give call #1 the teacher's prose and its course context."""
+    """Give call #1 the teacher's prose, its course context, and any textbook source.
+
+    `source` is a block from `textbook_source_block`, already capped.
+    """
     return (
         f"Course: {course_title} ({course_subject})\n"
         f"Audience: {audience}\n\n"
         "The teacher described the simulation they want:\n\n"
         f"{description.strip()}\n\n"
-        "Draft the simulation blueprint."
+        + (f"{source}\n\n" if source else "")
+        + "Draft the simulation blueprint."
     )
 
 
@@ -125,8 +216,12 @@ def plan_revision_user_prompt(
     audience: str,
     course_title: str,
     course_subject: str,
+    source: str | None = None,
 ) -> str:
     """Revise an existing blueprint from the teacher's own words.
+
+    A grounded blueprint keeps its source through revisions, so a request like "use the
+    book's 3-4-5 example" has the text to draw on.
 
     Deliberately reuses PLAN_SYSTEM_PROMPT and PLAN_SCHEMA: a revision is an
     ordinary plan generation with a different user prompt, so every rule already
@@ -139,7 +234,8 @@ def plan_revision_user_prompt(
         "asked for changes:\n\n"
         f"{json.dumps(plan, indent=2)}\n\n"
         f"The teacher's words:\n\n{feedback.strip()}\n\n"
-        "Return the COMPLETE blueprint with their request applied. Change only what "
+        + (f"{source}\n\n" if source else "")
+        + "Return the COMPLETE blueprint with their request applied. Change only what "
         "they asked about and what must follow from it: if a control changes, the "
         "behavior rules and expected observations that mention it must change with it, "
         "or the blueprint contradicts itself. Everything they did not raise must come "
