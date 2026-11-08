@@ -22,6 +22,16 @@ export default async function PlanPage({ params, searchParams }: PageProps<'/lab
           { label: 'Simulation blueprint' },
         ]}
       />
+      {lab.source && (
+        <p className="mt-3 text-xs text-neutral-500">
+          Textbook source:{' '}
+          <span className="text-neutral-300">
+            {lab.source.book} {lab.source.grade}, Part {lab.source.part}, Ch. {lab.source.chapter}{' '}
+            {lab.source.chapter_title} — §{lab.source.number} {lab.source.title} (pp.{' '}
+            {lab.source.page_start}–{lab.source.page_end})
+          </span>
+        </p>
+      )}
       <PlanWorkspace lab={lab} initialJobId={initialJobId} />
     </main>
   );

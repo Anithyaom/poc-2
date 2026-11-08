@@ -133,6 +133,34 @@ export interface CourseDetail extends Course {
   labs: LabSummary[];
 }
 
+/** Where a lab's textbook section sits in the book (GET /api/labs/:id `source`). */
+export interface LabSource {
+  ref: string;
+  book: string;
+  grade: number;
+  part: number;
+  chapter: number;
+  chapter_title: string;
+  number: string;
+  title: string;
+  page_start: number;
+  page_end: number;
+}
+
+/** GET /api/textbooks — the intake picker's outline. Titles and pages, no text. */
+export interface TextbookOutline {
+  id: string;
+  title: string;
+  grade: number;
+  source: string;
+  chapters: {
+    part: number;
+    chapter: number;
+    title: string;
+    sections: { ref: string; number: string; title: string; page_start: number; page_end: number }[];
+  }[];
+}
+
 export interface Lab {
   id: string;
   course_id: string;
@@ -141,6 +169,10 @@ export interface Lab {
   audience: string;
   status: LabStatus;
   title: string;
+  /** Optional textbook section the blueprint is grounded in. */
+  source_ref: string | null;
+  /** `source_ref` resolved; null if there is none or the textbook is not mounted. */
+  source: LabSource | null;
   active_plan_id: string | null;
   latest_plan_id: string | null;
   latest_plan_version: number | null;

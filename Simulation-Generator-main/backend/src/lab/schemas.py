@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.textbook.library import SourceSummary
+
 MIN_DESCRIPTION = 20
 
 
@@ -16,6 +18,8 @@ class LabCreate(BaseModel):
 
     description: str = Field(min_length=MIN_DESCRIPTION, max_length=4000)
     audience: str = Field(min_length=1, max_length=64)
+    # Optional textbook section to ground the blueprint in; a ref from GET /api/textbooks.
+    source_ref: str | None = Field(default=None, max_length=64)
 
 
 class PlanGenerateRequest(BaseModel):
@@ -37,6 +41,10 @@ class LabRead(BaseModel):
     audience: str
     status: str
     title: str
+    source_ref: str | None = None
+    # The ref resolved against the mounted textbook. None when there is no ref, or when
+    # the textbook is not mounted (the ref is kept; it resolves again once it is).
+    source: SourceSummary | None = None
     active_plan_id: UUID | None = None
     latest_plan_id: UUID | None = None
     latest_plan_version: int | None = None
