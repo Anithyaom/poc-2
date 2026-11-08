@@ -1,9 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { use, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/ui';
-import type { Lab } from '@/lib/types';
+import type { Lab, TextbookOutline } from '@/lib/types';
 
 const AUDIENCES = [
   'Grade 6',
@@ -31,6 +31,30 @@ export default function NewLabPage({ params }: PageProps<'/courses/[id]/labs/new
   const [audience, setAudience] = useState('Grade 9');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [books, setBooks] = useState<TextbookOutline[]>([]);
+  const [sourceRef, setSourceRef] = useState('');
+
+  // The picker is optional and only appears once the textbook has been extracted and
+  // mounted; a failed or empty fetch just leaves it hidden.
+  useEffect(() => {
+    let live = true;
+    fetch('/api/textbooks')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: TextbookOutline[]) => {
+        if (live) setBooks(data);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const pickSource = (ref: string) => {
+    setSourceRef(ref);
+    // A section belongs to one grade's book; default the year group to match.
+    const book = books.find((b) => b.chapters.some((c) => c.sections.some((s) => s.ref === ref)));
+    if (book) setAudience(`Grade ${book.grade}`);
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,7 +64,7 @@ export default function NewLabPage({ params }: PageProps<'/courses/[id]/labs/new
     const created = await fetch(`/api/courses/${courseId}/labs`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ description, audience }),
+      body: JSON.stringify({ description, audience, source_ref: sourceRef || null }),
     });
     if (!created.ok) {
       setBusy(false);
@@ -110,6 +134,36 @@ export default function NewLabPage({ params }: PageProps<'/courses/[id]/labs/new
             ))}
           </select>
         </label>
+
+        {books.length > 0 && (
+          <label className="flex flex-col gap-2">
+            <span className="text-xs text-neutral-400">Textbook section (optional)</span>
+            <select
+              value={sourceRef}
+              onChange={(e) => pickSource(e.target.value)}
+              className="rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-sm"
+            >
+              <option value="">None — work from my description only</option>
+              {books.map((book) =>
+                book.chapters.map((ch) => (
+                  <optgroup
+                    key={`${book.id}-${ch.part}-${ch.chapter}`}
+                    label={`${book.title} ${book.grade} · Part ${ch.part} · Ch. ${ch.chapter} ${ch.title}`}
+                  >
+                    {ch.sections.map((s) => (
+                      <option key={s.ref} value={s.ref}>
+                        {s.number} {s.title} (pp. {s.page_start}–{s.page_end})
+                      </option>
+                    ))}
+                  </optgroup>
+                )),
+              )}
+            </select>
+            <span className="text-xs text-neutral-500">
+              The blueprint will follow this section&apos;s examples and language.
+            </span>
+          </label>
+        )}
 
         {error && <p className="text-xs text-red-400">{error}</p>}
 

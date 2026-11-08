@@ -10,6 +10,7 @@ from src.lab.models import Lab
 from src.lab.schemas import LabRead
 from src.plan.models import PlanVersion
 from src.simulation.models import MAIN_COMPONENT, Simulation
+from src.textbook.library import SourceSummary, resolve_ref
 
 TITLE_FALLBACK_CHARS = 70
 
@@ -32,6 +33,7 @@ async def read_lab(lab: Lab) -> LabRead:
     await lab.fetch_related("course")
     plan = await latest_plan(lab.id)
     plan_json = plan.plan_json if plan else None
+    section = resolve_ref(lab.source_ref) if lab.source_ref else None
     current = await Simulation.get_or_none(
         lab_id=lab.id, component_ref=MAIN_COMPONENT, is_current=True
     )
@@ -44,6 +46,8 @@ async def read_lab(lab: Lab) -> LabRead:
         audience=lab.audience,
         status=lab.status,
         title=derive_title(lab.description, plan_json),
+        source_ref=lab.source_ref,
+        source=SourceSummary.model_validate(section.model_dump()) if section else None,
         active_plan_id=lab.active_plan_id,
         latest_plan_id=plan.id if plan else None,
         latest_plan_version=plan.version if plan else None,

@@ -13,3 +13,10 @@ node_modules/
 # Kept out of the repo: third-party UI we did not author and have no licence for.
 sim_screenshots_samples/
 sim_screenshots_samples.zip
+
+# NCERT textbook PDFs (~85 MB) and the text extracted from them — NCERT copyright.
+# Recreate with data/fetch_ncert_pdfs.sh, then backend/scripts/extract_textbook.py.
+data/pdfs/
+data/textbook/
+# Grounding comparison reports (scripts/compare_grounding.py) quote the book too.
+data/grounding_runs/

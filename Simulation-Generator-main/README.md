@@ -73,7 +73,13 @@ docker compose logs -f             # follow its logs
 cd web && npm run dev              # frontend
 cd backend && uv run pytest        # tests
 cd backend && uv run ruff check .  # lint
+data/fetch_ncert_pdfs.sh           # download Ganita Prakash Grade 8 PDFs into data/pdfs/
+cd backend && PYTHONPATH=. uv run python scripts/extract_textbook.py  # -> data/textbook/*.json
+cd backend && PYTHONPATH=. uv run python scripts/compare_grounding.py  # grounded vs not, on your plan model
 ```
+
+The extracted textbook is mounted read-only into `api` and the worker; once it exists, the
+new-lab form offers an optional Ganita Prakash section to ground the blueprint in.
 
 Migrations apply automatically when the stack boots. If you change a model, generate the
 migration yourself and commit it:

@@ -10,6 +10,9 @@ the real task). Milestone 1 replaces it with the real `generate_plan` task.
     PYTHONPATH=. uv run python scripts/try_plan.py "your prose here" --audience "Grade 11"
     PYTHONPATH=. uv run python scripts/try_plan.py --json > plan.json
     PYTHONPATH=. uv run python scripts/try_plan.py --from plan.json --feedback "..."
+    PYTHONPATH=. uv run python scripts/try_plan.py "prose" --audience "Grade 8" \\
+        --source gp8:p2:c2:s4          # ground it in a textbook section
+    PYTHONPATH=. uv run python scripts/try_plan.py --source gp8:p2:c2:s4 --show-prompt
 """
 
 import argparse
@@ -17,13 +20,16 @@ import json
 import sys
 import textwrap
 
+from src.config.settings import settings
 from src.llm.client import LLMOutputError, structured_completion
 from src.llm.prompts import (
     PLAN_SYSTEM_PROMPT,
     plan_revision_user_prompt,
     plan_user_prompt,
+    textbook_source_block,
 )
 from src.llm.schemas import PLAN_SCHEMA, Plan, manifest_from_plan
+from src.textbook.library import load_book, outline, resolve_ref
 
 DEFAULT_DESCRIPTION = (
     "I want students to see why a heavier ball and a lighter ball fall at the "
@@ -115,7 +121,32 @@ def main() -> int:
         help="Revise this saved plan (pair with --feedback) instead of drafting a new one",
     )
     parser.add_argument("--feedback", help="Teacher's requested changes; implies a revision")
+    parser.add_argument(
+        "--source",
+        metavar="REF",
+        help="Ground in a textbook section, e.g. gp8:p2:c2:s4 ('list' prints every ref)",
+    )
+    parser.add_argument("--show-prompt", action="store_true", help="Print the user prompt and stop")
     args = parser.parse_args()
+
+    if args.source == "list":
+        book = load_book()
+        if book is None:
+            print(f"No textbook in {settings.textbook_dir}", file=sys.stderr)
+            return 1
+        for ch in outline(book).chapters:
+            print(f"Part {ch.part} ch.{ch.chapter} {ch.title}")
+            for s in ch.sections:
+                print(f"  {s.ref:<14} {s.number} {s.title}  (pp.{s.page_start}-{s.page_end})")
+        return 0
+
+    textbook = None
+    if args.source:
+        section = resolve_ref(args.source)
+        if section is None:
+            print(f"Unknown section {args.source!r}; try --source list", file=sys.stderr)
+            return 2
+        textbook = textbook_source_block(section, max_words=settings.textbook_excerpt_max_words)
 
     if bool(args.from_plan) != bool(args.feedback):
         print("--from and --feedback must be used together", file=sys.stderr)
@@ -130,6 +161,7 @@ def main() -> int:
             audience=args.audience,
             course_title=args.course,
             course_subject=args.subject,
+            source=textbook,
         )
     else:
         user = plan_user_prompt(
@@ -137,7 +169,13 @@ def main() -> int:
             audience=args.audience,
             course_title=args.course,
             course_subject=args.subject,
+            source=textbook,
         )
+
+    if args.show_prompt:
+        print(user)
+        print(f"\n[{len(user.split())} words in the user prompt]", file=sys.stderr)
+        return 0
 
     try:
         plan, raw = structured_completion(

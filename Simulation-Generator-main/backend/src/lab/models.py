@@ -28,6 +28,10 @@ class Lab(Model):
     # Set when a plan is accepted. Not a FK: plan_versions points at labs, and a
     # circular FK would make the migration ordering unnecessarily awkward.
     active_plan_id = fields.UUIDField(null=True)
+    # Optional textbook section the blueprint is grounded in, e.g. "gp8:p2:c2:s4".
+    # A ref into the mounted textbook JSON (src/textbook/library.py), not a FK: the
+    # book is a read-only file, not a table.
+    source_ref = fields.CharField(max_length=64, null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:

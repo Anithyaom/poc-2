@@ -8,6 +8,7 @@ from src.course.schemas import CourseCreate, CourseDetail, CourseRead, LabSummar
 from src.lab.models import Lab
 from src.lab.schemas import LabCreate, LabRead
 from src.lab.service import derive_title, latest_plan, read_lab
+from src.textbook.library import resolve_ref
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
@@ -61,9 +62,18 @@ async def create_lab(course_id: UUID, payload: LabCreate) -> LabRead:
     if course is None:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    # Validate against the book actually mounted, so a lab never stores a ref that
+    # step 3 cannot turn into text.
+    if payload.source_ref is not None and resolve_ref(payload.source_ref) is None:
+        raise HTTPException(
+            status_code=422,
+            detail="That textbook section was not found. Pick one from the list again.",
+        )
+
     lab = await Lab.create(
         course_id=course_id,
         description=payload.description,
         audience=payload.audience,
+        source_ref=payload.source_ref,
     )
     return await read_lab(lab)

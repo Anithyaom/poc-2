@@ -14,6 +14,7 @@ from src.lab.router import router as lab_router
 from src.llm.client import verify_model
 from src.plan.router import router as plan_router
 from src.simulation.router import router as simulation_router
+from src.textbook.router import router as textbook_router
 
 logging.basicConfig(level=logging.DEBUG if settings.debug else logging.INFO)
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ app.include_router(lab_router)
 app.include_router(plan_router)
 app.include_router(job_router)
 app.include_router(simulation_router)
+app.include_router(textbook_router)
 
 
 @app.get("/api/health")
