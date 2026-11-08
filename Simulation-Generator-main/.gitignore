@@ -18,3 +18,5 @@ sim_screenshots_samples.zip
 # Recreate with data/fetch_ncert_pdfs.sh, then backend/scripts/extract_textbook.py.
 data/pdfs/
 data/textbook/
+# Grounding comparison reports (scripts/compare_grounding.py) quote the book too.
+data/grounding_runs/
