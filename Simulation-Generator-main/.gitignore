@@ -13,3 +13,6 @@ node_modules/
 # Kept out of the repo: third-party UI we did not author and have no licence for.
 sim_screenshots_samples/
 sim_screenshots_samples.zip
+
+# NCERT textbook PDFs — NCERT copyright, ~85 MB. Fetch locally with data/fetch_ncert_pdfs.sh.
+data/pdfs/
